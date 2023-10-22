@@ -63,14 +63,6 @@ describe('workflow', () => {
   })
 
   it('renders a full workflow', () => {
-    const mainWorkflow = new MainWorkflow([
-      new CallStep('call_subworkflow', {
-        call: 'say_hello',
-        args: {
-          name: 'Leela',
-        },
-      }),
-    ])
     const subworkflow = new Subworkflow(
       'say_hello',
       [
@@ -83,6 +75,14 @@ describe('workflow', () => {
       ],
       ['name']
     )
+    const mainWorkflow = new MainWorkflow([
+      new CallStep('call_subworkflow', {
+        call: subworkflow,
+        args: {
+          name: 'Leela',
+        },
+      }),
+    ])
     const wf = new WorkflowApp(mainWorkflow, [subworkflow])
 
     const expected = YAML.parse(`
@@ -121,7 +121,7 @@ describe('workflow', () => {
     }).toThrow()
   })
 
-  it('outputs the workflow defition in YAML', () => {
+  it('outputs the workflow definition in YAML', () => {
     const steps = [
       new AssignStep('assign_name', [['name', $('args.name')]]),
       new CallStep('say_hello', {

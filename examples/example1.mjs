@@ -8,15 +8,6 @@ import {
 } from '../dist/index.js'
 
 function main() {
-  const mainWorkflow = new MainWorkflow([
-    new CallStep('call_subworkflow', {
-      call: 'say_hello',
-      args: {
-        name: 'Leela',
-      },
-    }),
-  ])
-
   const subworkflow = new Subworkflow(
     'say_hello',
     [
@@ -29,6 +20,15 @@ function main() {
     ],
     ['name']
   )
+
+  const mainWorkflow = new MainWorkflow([
+    new CallStep('call_subworkflow', {
+      call: subworkflow,
+      args: {
+        name: 'Leela',
+      },
+    }),
+  ])
 
   const workflow = new WorkflowApp(mainWorkflow, [subworkflow])
 

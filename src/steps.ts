@@ -1,5 +1,8 @@
+import * as _ from 'lodash'
+
 import type { GWValue, GWVariableName } from './variables'
 import { GWExpression, renderGWValue } from './variables'
+import { Subworkflow } from './workflows'
 
 export type GWStepName = string
 export type GWAssignment = readonly [GWVariableName, GWValue]
@@ -39,12 +42,44 @@ export class CallStep implements WorkflowStep {
   readonly args?: GWArguments
   readonly result?: string
 
+  /**
+   * Construct a call step.
+   *
+   * @param name step name
+   * @param options.call a Subworkflow or standard library function name as string
+   * @param options.args argument values
+   * @param options.result name of the variable where the function output will be stored
+   */
   constructor(
     name: GWStepName,
-    options: { call: string; args?: GWArguments; result?: string }
+    options: { call: Subworkflow | string; args?: GWArguments; result?: string }
   ) {
     this.name = name
-    this.call = options.call
+    if (options.call instanceof Subworkflow) {
+      const neededArgs = options.call.params ?? []
+      const providedArgs = Object.keys(options.args ?? {})
+      const needBuNotProvided = _.difference(neededArgs, providedArgs)
+      const providedButNotNeeded = _.difference(providedArgs, neededArgs)
+
+      if (needBuNotProvided.length > 0) {
+        throw new Error(
+          `Required parameter not provided on call step "${name}": ${needBuNotProvided.join(
+            ', '
+          )}`
+        )
+      }
+      if (providedButNotNeeded.length > 0) {
+        throw new Error(
+          `Extra arguments provided for call step "${name}": ${providedButNotNeeded.join(
+            ', '
+          )}`
+        )
+      }
+
+      this.call = options.call.name
+    } else {
+      this.call = options.call
+    }
     this.args = options.args
     this.result = options.result
   }

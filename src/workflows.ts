@@ -1,6 +1,6 @@
 import * as YAML from 'yaml'
+import * as _ from 'lodash'
 
-import { hasDuplicates } from './utils'
 import { WorkflowStep } from './steps'
 import { GWVariableName } from './variables'
 
@@ -15,7 +15,9 @@ export class WorkflowApp {
     this.mainWorkflow = mainWorkflow
     this.subworkflows = subworkflows
 
-    if (hasDuplicates(subworkflows.map((w) => w.name))) {
+    if (
+      _.uniq(subworkflows.map((w) => w.name)).length !== subworkflows.length
+    ) {
       throw new Error('Duplicate subworkflow names are not allowed')
     }
   }

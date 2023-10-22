@@ -11,6 +11,7 @@ import {
   SwitchStep,
   TryStep,
 } from '../src/steps'
+import { Subworkflow } from '../src/workflows'
 
 describe('workflows step', () => {
   it('renders an assign step', () => {
@@ -102,6 +103,44 @@ describe('workflows step', () => {
     `)
 
     expect(step.render()).toEqual(expected)
+  })
+
+  it('throws if a required call argument is not provided', () => {
+    const requiredParams = ['arg1', 'arg2']
+    const subworkflow = new Subworkflow(
+      'subworkflow1',
+      [new ReturnStep('return1', '1')],
+      requiredParams
+    )
+
+    expect(() => {
+      new CallStep('step1', {
+        call: subworkflow,
+        args: {
+          arg1: 'value1',
+        },
+      })
+    }).toThrow('Required parameter not provided')
+  })
+
+  it('throws if call step has too many arguments', () => {
+    const requiredParams = ['arg1', 'arg2']
+    const subworkflow = new Subworkflow(
+      'subworkflow1',
+      [new ReturnStep('return1', '1')],
+      requiredParams
+    )
+
+    expect(() => {
+      new CallStep('step1', {
+        call: subworkflow,
+        args: {
+          arg1: 'value1',
+          arg2: 'value2',
+          extra_argument: '',
+        },
+      })
+    }).toThrow('Extra arguments provided')
   })
 
   it('renders a switch step', () => {

@@ -11,15 +11,6 @@ By writing a workflow definition in Typescript, we can employ the Typescript typ
 This program
 
 ```typescript
-const mainWorkflow = new MainWorkflow([
-  new CallStep('call_subworkflow', {
-    call: 'say_hello',
-    args: {
-      name: 'Leela',
-    },
-  }),
-])
-
 const subworkflow = new Subworkflow(
   'say_hello',
   [
@@ -32,6 +23,15 @@ const subworkflow = new Subworkflow(
   ],
   ['name']
 )
+
+const mainWorkflow = new MainWorkflow([
+  new CallStep('call_subworkflow', {
+    call: subworkflow,
+    args: {
+      name: 'Leela',
+    },
+  }),
+])
 
 const workflow = new WorkflowApp(mainWorkflow, [subworkflow])
 
