@@ -9,6 +9,7 @@ export {
   AssignStep,
   CallStep,
   SwitchStep,
+  SwitchCondition,
   TryStep,
   RaiseStep,
   EndStep,
