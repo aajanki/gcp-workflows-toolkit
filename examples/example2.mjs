@@ -2,27 +2,27 @@ import {
   WorkflowApp,
   MainWorkflow,
   Subworkflow,
-  CallStep,
-  SwitchStep,
-  SwitchCondition,
-  RaiseStep,
-  TryStep,
-  ReturnStep,
+  call,
+  condition,
+  raise,
+  returnStep,
+  switchStep,
   toYAMLString,
+  tryExcept,
   $,
 } from '../dist/index.js'
 
 function main() {
   const subworkflow = getOrderSubworkflow()
   const mainWorkflow = new MainWorkflow([
-    new CallStep('call_subworkflow', {
+    call('call_subworkflow', {
       call: subworkflow,
       args: {
         order_id: '1234',
       },
       result: 'order_status',
     }),
-    new CallStep('log_order', {
+    call('log_order', {
       call: 'sys.log',
       args: {
         text: $('order_status'),
@@ -36,7 +36,7 @@ function main() {
 }
 
 function getOrderSubworkflow() {
-  const httpGetStep = new CallStep('get_order_status', {
+  const httpGetStep = call('get_order_status', {
     call: 'http.get',
     args: {
       url: $('"https://planet.express.test/orders/" + order_id'),
@@ -44,17 +44,17 @@ function getOrderSubworkflow() {
     result: 'response',
   })
 
-  const handleKnownErrors = new SwitchStep('known_errors', {
+  const handleKnownErrors = switchStep('known_errors', {
     conditions: [
-      new SwitchCondition($('e.code == 404'), {
-        steps: [new ReturnStep('return_error', 'Not found')],
+      condition($('e.code == 404'), {
+        steps: [returnStep('return_error', 'Not found')],
       }),
     ],
   })
 
-  const handleUnknownErrors = new RaiseStep('unknown_errors', $('e'))
+  const handleUnknownErrors = raise('unknown_errors', $('e'))
 
-  const step = new TryStep('try_get_order_status', {
+  const step = tryExcept('try_get_order_status', {
     steps: [httpGetStep],
     errorMap: 'e',
     exceptSteps: [handleKnownErrors, handleUnknownErrors],

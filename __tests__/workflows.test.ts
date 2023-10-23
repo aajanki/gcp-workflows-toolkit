@@ -6,14 +6,14 @@ import {
   WorkflowApp,
   toYAMLString,
 } from '../src/workflows'
-import { AssignStep, CallStep, ReturnStep } from '../src/steps'
+import { assign, call, returnStep } from '../src/steps'
 import { $ } from '../src/variables'
 
 describe('workflow', () => {
   it('renders a main workflow', () => {
     const steps = [
-      new AssignStep('assign_name', [['name', $('args.name')]]),
-      new CallStep('say_hello', {
+      assign('assign_name', [['name', $('args.name')]]),
+      call('say_hello', {
         call: 'sys.log',
         args: {
           text: $('"Hello, " + name'),
@@ -40,7 +40,7 @@ describe('workflow', () => {
 
   it('renders a subworkflow', () => {
     const steps = [
-      new CallStep('log_greetings', {
+      call('log_greetings', {
         call: 'sys.log',
         args: {
           text: $('"Hello, " + name'),
@@ -66,7 +66,7 @@ describe('workflow', () => {
     const subworkflow = new Subworkflow(
       'say_hello',
       [
-        new CallStep('log_greetings', {
+        call('log_greetings', {
           call: 'sys.log',
           args: {
             text: $('"Hello, " + name'),
@@ -76,7 +76,7 @@ describe('workflow', () => {
       ['name']
     )
     const mainWorkflow = new MainWorkflow([
-      new CallStep('call_subworkflow', {
+      call('call_subworkflow', {
         call: subworkflow,
         args: {
           name: 'Leela',
@@ -105,15 +105,15 @@ describe('workflow', () => {
   })
 
   it("doesn't allow duplicate subworkflow names", () => {
-    const main = new MainWorkflow([new AssignStep('step1', [['a', '"a"']])])
+    const main = new MainWorkflow([assign('step1', [['a', '"a"']])])
     const sub1 = new Subworkflow('mysubworkflow', [
-      new ReturnStep('return1', '1'),
+      returnStep('return1', '1'),
     ])
     const sub2 = new Subworkflow('anotherworkflow', [
-      new ReturnStep('return2', '2'),
+      returnStep('return2', '2'),
     ])
     const sub3 = new Subworkflow('mysubworkflow', [
-      new ReturnStep('return3', '3'),
+      returnStep('return3', '3'),
     ])
 
     expect(() => {
@@ -123,8 +123,8 @@ describe('workflow', () => {
 
   it('outputs the workflow definition in YAML', () => {
     const steps = [
-      new AssignStep('assign_name', [['name', $('args.name')]]),
-      new CallStep('say_hello', {
+      assign('assign_name', [['name', $('args.name')]]),
+      call('say_hello', {
         call: 'sys.log',
         args: {
           text: $('"Hello, " + name'),

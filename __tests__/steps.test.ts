@@ -2,20 +2,20 @@ import * as YAML from 'yaml'
 
 import { $ } from '../src/variables'
 import {
-  AssignStep,
-  CallStep,
-  EndStep,
-  RaiseStep,
-  ReturnStep,
-  SwitchCondition,
-  SwitchStep,
-  TryStep,
+  assign,
+  call,
+  condition,
+  end,
+  raise,
+  switchStep,
+  tryExcept,
+  returnStep,
 } from '../src/steps'
 import { Subworkflow } from '../src/workflows'
 
 describe('workflows step', () => {
   it('renders an assign step', () => {
-    const step = new AssignStep('step1', [
+    const step = assign('step1', [
       ['city', 'New New York'],
       ['value', $('1 + 2')],
     ])
@@ -31,7 +31,7 @@ describe('workflows step', () => {
   })
 
   it('assigns variables with index notation', () => {
-    const step = new AssignStep('update_list', [
+    const step = assign('update_list', [
       ['my_list', [0, 1, 2, 3, 4]],
       ['idx', 0],
       ['my_list[0]', 'Value0'],
@@ -53,7 +53,7 @@ describe('workflows step', () => {
   })
 
   it('renders a simple call step', () => {
-    const step = new CallStep('step1', {
+    const step = call('step1', {
       call: 'destination_step',
     })
 
@@ -66,7 +66,7 @@ describe('workflows step', () => {
   })
 
   it('renders a call step with arguments and result', () => {
-    const step = new CallStep('step1', {
+    const step = call('step1', {
       call: 'deliver_package',
       args: {
         destination: 'Atlanta',
@@ -88,7 +88,7 @@ describe('workflows step', () => {
   })
 
   it('renders a call step with an expression as an argument', () => {
-    const step = new CallStep('step1', {
+    const step = call('step1', {
       call: 'deliver_package',
       args: {
         destination: $('destinations[i]'),
@@ -109,12 +109,12 @@ describe('workflows step', () => {
     const requiredParams = ['arg1', 'arg2']
     const subworkflow = new Subworkflow(
       'subworkflow1',
-      [new ReturnStep('return1', '1')],
+      [returnStep('return1', '1')],
       requiredParams
     )
 
     expect(() => {
-      new CallStep('step1', {
+      call('step1', {
         call: subworkflow,
         args: {
           arg1: 'value1',
@@ -127,12 +127,12 @@ describe('workflows step', () => {
     const requiredParams = ['arg1', 'arg2']
     const subworkflow = new Subworkflow(
       'subworkflow1',
-      [new ReturnStep('return1', '1')],
+      [returnStep('return1', '1')],
       requiredParams
     )
 
     expect(() => {
-      new CallStep('step1', {
+      call('step1', {
         call: subworkflow,
         args: {
           arg1: 'value1',
@@ -144,23 +144,21 @@ describe('workflows step', () => {
   })
 
   it('renders a switch step', () => {
-    const destination1 = new CallStep('destination_new_new_york', {
+    const destination1 = call('destination_new_new_york', {
       call: 'deliver_to_new_new_york',
     })
-    const assign1 = new AssignStep('increase_counter', [
-      ['a', $('mars_counter + 1')],
-    ])
-    const return1 = new ReturnStep('return_counter', $('a'))
-    const step = new SwitchStep('step1', {
+    const assign1 = assign('increase_counter', [['a', $('mars_counter + 1')]])
+    const return1 = returnStep('return_counter', $('a'))
+    const step = switchStep('step1', {
       conditions: [
-        new SwitchCondition($('city = "New New York"'), {
+        condition($('city = "New New York"'), {
           next: destination1,
         }),
-        new SwitchCondition($('city = "Mars Vegas"'), {
+        condition($('city = "Mars Vegas"'), {
           steps: [assign1, return1],
         }),
       ],
-      next: new EndStep(),
+      next: end(),
     })
 
     const expected2 = YAML.parse(`
@@ -182,22 +180,22 @@ describe('workflows step', () => {
   })
 
   it('renders a try step', () => {
-    const potentiallyFailingStep = new CallStep('step2', {
+    const potentiallyFailingStep = call('step2', {
       call: 'http.get',
       args: {
         url: 'https://maybe.failing.test/',
       },
       result: 'response',
     })
-    const knownErrors = new SwitchStep('known_errors', {
+    const knownErrors = switchStep('known_errors', {
       conditions: [
-        new SwitchCondition($('e.code == 404'), {
-          steps: [new ReturnStep('return_error', 'Not found')],
+        condition($('e.code == 404'), {
+          steps: [returnStep('return_error', 'Not found')],
         }),
       ],
     })
-    const unknownErrors = new RaiseStep('unknown_errors', $('e'))
-    const step = new TryStep('step1', {
+    const unknownErrors = raise('unknown_errors', $('e'))
+    const step = tryExcept('step1', {
       steps: [potentiallyFailingStep],
       errorMap: 'e',
       exceptSteps: [knownErrors, unknownErrors],

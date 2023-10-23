@@ -14,7 +14,7 @@ This program
 const subworkflow = new Subworkflow(
   'say_hello',
   [
-    new CallStep('log_greetings', {
+    call('log_greetings', {
       call: 'sys.log',
       args: {
         text: $('"Hello, " + name'),
@@ -25,7 +25,7 @@ const subworkflow = new Subworkflow(
 )
 
 const mainWorkflow = new MainWorkflow([
-  new CallStep('call_subworkflow', {
+  call('call_subworkflow', {
     call: subworkflow,
     args: {
       name: 'Leela',

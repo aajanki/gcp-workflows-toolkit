@@ -35,6 +35,10 @@ export class AssignStep implements WorkflowStep {
   }
 }
 
+export function assign(name: GWStepName, assignments: Array<GWAssignment>) {
+  return new AssignStep(name, assignments)
+}
+
 // https://cloud.google.com/workflows/docs/reference/syntax/calls
 export class CallStep implements WorkflowStep {
   readonly name: GWStepName
@@ -106,6 +110,13 @@ export class CallStep implements WorkflowStep {
   }
 }
 
+export function call(
+  name: GWStepName,
+  options: { call: Subworkflow | string; args?: GWArguments; result?: string }
+) {
+  return new CallStep(name, options)
+}
+
 // A class representing the individual branches of a switch step
 export class SwitchCondition {
   readonly condition: GWExpression
@@ -136,6 +147,13 @@ export class SwitchCondition {
   }
 }
 
+export function condition(
+  expression: GWExpression,
+  options: { next?: WorkflowStep; steps?: WorkflowStep[] }
+) {
+  return new SwitchCondition(expression, options)
+}
+
 // https://cloud.google.com/workflows/docs/reference/syntax/conditions
 export class SwitchStep implements WorkflowStep {
   readonly name: GWStepName
@@ -161,8 +179,15 @@ export class SwitchStep implements WorkflowStep {
   }
 }
 
+export function switchStep(
+  name: GWStepName,
+  options: { conditions: SwitchCondition[]; next?: WorkflowStep }
+) {
+  return new SwitchStep(name, options)
+}
+
 // https://cloud.google.com/workflows/docs/reference/syntax/catching-errors
-export class TryStep implements WorkflowStep {
+export class TryExceptStep implements WorkflowStep {
   readonly name: GWStepName
   readonly steps: WorkflowStep[]
   readonly errorMap?: GWStepName
@@ -197,6 +222,17 @@ export class TryStep implements WorkflowStep {
   }
 }
 
+export function tryExcept(
+  name: GWStepName,
+  options: {
+    steps: WorkflowStep[]
+    errorMap?: GWVariableName
+    exceptSteps: WorkflowStep[]
+  }
+) {
+  return new TryExceptStep(name, options)
+}
+
 // https://cloud.google.com/workflows/docs/reference/syntax/raising-errors
 export class RaiseStep implements WorkflowStep {
   readonly name: GWStepName
@@ -216,6 +252,10 @@ export class RaiseStep implements WorkflowStep {
   }
 }
 
+export function raise(name: GWStepName, value: GWValue) {
+  return new RaiseStep(name, value)
+}
+
 // https://cloud.google.com/workflows/docs/reference/syntax/completing
 export class EndStep implements WorkflowStep {
   readonly name: GWStepName = 'end'
@@ -223,6 +263,10 @@ export class EndStep implements WorkflowStep {
   render(): object {
     return {}
   }
+}
+
+export function end() {
+  return new EndStep()
 }
 
 // https://cloud.google.com/workflows/docs/reference/syntax/completing
@@ -242,4 +286,8 @@ export class ReturnStep implements WorkflowStep {
       },
     }
   }
+}
+
+export function returnStep(name: GWStepName, value: GWValue) {
+  return new ReturnStep(name, value)
 }

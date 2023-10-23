@@ -2,7 +2,7 @@ import {
   WorkflowApp,
   MainWorkflow,
   Subworkflow,
-  CallStep,
+  call,
   toYAMLString,
   $,
 } from '../dist/index.js'
@@ -11,7 +11,7 @@ function main() {
   const subworkflow = new Subworkflow(
     'say_hello',
     [
-      new CallStep('log_greetings', {
+      call('log_greetings', {
         call: 'sys.log',
         args: {
           text: $('"Hello, " + name'),
@@ -22,7 +22,7 @@ function main() {
   )
 
   const mainWorkflow = new MainWorkflow([
-    new CallStep('call_subworkflow', {
+    call('call_subworkflow', {
       call: subworkflow,
       args: {
         name: 'Leela',
