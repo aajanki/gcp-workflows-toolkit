@@ -22,6 +22,56 @@ export class WorkflowApp {
     }
   }
 
+  /**
+   * Execute all syntax validators on this WorkflowApp.
+   *
+   * Throws an Error if there is validation errors.
+   */
+  validate(): void {
+    this.validateNoDuplicateStepNames()
+  }
+
+  /**
+   * Check that workflow does not contain duplicated step names.
+   */
+  validateNoDuplicateStepNames(): void {
+    function collectDuplicateStepName(wf: BaseWorkflow): string[] {
+      const seen: Set<string> = new Set()
+      const duplicates: Set<string> = new Set()
+      for (const step of wf.iterateStepsDepthFirst()) {
+        if (seen.has(step.name)) {
+          duplicates.add(step.name)
+        } else {
+          seen.add(step.name)
+        }
+      }
+
+      return Array.from(duplicates.values())
+    }
+
+    const duplicatesInMain = collectDuplicateStepName(this.mainWorkflow)
+
+    if (duplicatesInMain.length > 0) {
+      throw new Error(
+        `Duplicated step names in the main workflow: ${duplicatesInMain.join(
+          ', '
+        )}`
+      )
+    }
+
+    for (const subworkflow of this.subworkflows) {
+      const duplicatesInSub = collectDuplicateStepName(subworkflow)
+
+      if (duplicatesInSub.length > 0) {
+        throw new Error(
+          `Duplicated step names in the subworkflow ${
+            subworkflow.name
+          }: ${duplicatesInSub.join(', ')}`
+        )
+      }
+    }
+  }
+
   render(): object {
     const merged = new Map()
 
@@ -56,6 +106,21 @@ class BaseWorkflow {
     return {
       params: this.params,
       steps: this.steps.map((x) => x.render()),
+    }
+  }
+
+  *iterateStepsDepthFirst(): IterableIterator<WorkflowStep> {
+    function* visitPreOrder(
+      step: WorkflowStep
+    ): IterableIterator<WorkflowStep> {
+      yield step
+      for (const x of step.steps) {
+        yield* visitPreOrder(x)
+      }
+    }
+
+    for (const step of this.steps) {
+      yield* visitPreOrder(step)
     }
   }
 }

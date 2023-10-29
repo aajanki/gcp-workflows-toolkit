@@ -56,3 +56,12 @@ say_hello:
         args:
           text: ${"Hello, " + name}
 ```
+
+### Validating a workflow definition
+
+`WorkflowApp.validate()` checks the workflow definition for common errors. If it detects an error, it throws an exception. Currently, the validator checks the workflow definition for duplicated step names.
+
+```typescript
+const workflow = new WorkflowApp(...)
+workflow.validate()
+```
