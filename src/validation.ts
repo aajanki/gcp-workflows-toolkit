@@ -13,12 +13,21 @@ export class WorkflowValidationError extends Error {
 export type WorkflowIssue = { type: string; message: string }
 
 /**
- * Execute all syntax validators on this WorkflowApp.
+ * Execute all syntax validators on a WorkflowApp app.
  *
- * Throws an Error if there is validation errors.
+ * Throws a WorkflowValidationError if there are errors.
  */
 export function validate(app: WorkflowApp): void {
-  const issues = validateNoDuplicateStepNames(app)
+  const validators = [
+    validateNoDuplicateStepNames,
+    validateWorkflowNames,
+    validateNoDuplicateSubworkflowNames,
+  ]
+
+  const issues: WorkflowIssue[] = []
+  for (const validator of validators) {
+    issues.push(...validator(app))
+  }
 
   if (issues.length > 0) {
     throw new WorkflowValidationError(issues)
@@ -63,6 +72,61 @@ function validateNoDuplicateStepNames(app: WorkflowApp): WorkflowIssue[] {
       }: ${duplicatesInSub.join(', ')}`
       issues.push({ type: 'duplicatedStepName', message: message })
     }
+  }
+
+  return issues
+}
+
+/**
+ * Check that there are no two subworkflows sharing a name.
+ */
+function validateNoDuplicateSubworkflowNames(
+  app: WorkflowApp
+): WorkflowIssue[] {
+  const seen: Set<string> = new Set()
+  const duplicates: Set<string> = new Set()
+  const names = app.subworkflows.map((w) => w.name)
+
+  for (const name of names) {
+    if (seen.has(name)) {
+      duplicates.add(name)
+    } else {
+      seen.add(name)
+    }
+  }
+
+  if (duplicates.size > 0) {
+    const dup = Array.from(duplicates)
+    return [
+      {
+        type: 'duplicatedSubworkflowName',
+        message: `Duplicated subworkflow names: ${dup.join(', ')}`,
+      },
+    ]
+  } else {
+    return []
+  }
+}
+
+/**
+ * Check that the subworkflow names are valid.
+ */
+function validateWorkflowNames(app: WorkflowApp): WorkflowIssue[] {
+  const issues: WorkflowIssue[] = []
+  const names = app.subworkflows.map((w) => w.name)
+
+  if (names.some((x) => x === 'main')) {
+    issues.push({
+      type: 'invalidWorkflowName',
+      message: 'Subworkflow can\'t be called "main"',
+    })
+  }
+
+  if (names.some((x) => x === '')) {
+    issues.push({
+      type: 'invalidWorkflowName',
+      message: 'Subworkflow must have a non-empty name',
+    })
   }
 
   return issues

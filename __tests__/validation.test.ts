@@ -130,4 +130,16 @@ describe('Validator', () => {
 
     expect(() => validate(wf)).not.toThrow()
   })
+
+  it("doesn't allow duplicate subworkflow names", () => {
+    const main = new MainWorkflow([assign('step1', [['a', '"a"']])])
+    const sub1 = new Subworkflow('mysubworkflow', [returnStep('return1', '1')])
+    const sub2 = new Subworkflow('anotherworkflow', [
+      returnStep('return2', '2'),
+    ])
+    const sub3 = new Subworkflow('mysubworkflow', [returnStep('return3', '3')])
+    const wf = new WorkflowApp(main, [sub1, sub2, sub3])
+
+    expect(() => validate(wf)).toThrow(WorkflowValidationError)
+  })
 })

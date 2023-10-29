@@ -6,7 +6,7 @@ import {
   WorkflowApp,
   toYAMLString,
 } from '../src/workflows'
-import { assign, call, returnStep } from '../src/steps'
+import { assign, call } from '../src/steps'
 import { $ } from '../src/variables'
 
 describe('workflow', () => {
@@ -102,19 +102,6 @@ describe('workflow', () => {
     `)
 
     expect(wf.render()).toEqual(expected)
-  })
-
-  it("doesn't allow duplicate subworkflow names", () => {
-    const main = new MainWorkflow([assign('step1', [['a', '"a"']])])
-    const sub1 = new Subworkflow('mysubworkflow', [returnStep('return1', '1')])
-    const sub2 = new Subworkflow('anotherworkflow', [
-      returnStep('return2', '2'),
-    ])
-    const sub3 = new Subworkflow('mysubworkflow', [returnStep('return3', '3')])
-
-    expect(() => {
-      new WorkflowApp(main, [sub1, sub2, sub3])
-    }).toThrow()
   })
 
   it('outputs the workflow definition in YAML', () => {

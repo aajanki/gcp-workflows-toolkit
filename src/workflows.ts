@@ -1,5 +1,4 @@
 import * as YAML from 'yaml'
-import * as _ from 'lodash'
 
 import { WorkflowStep } from './steps'
 import { GWVariableName } from './variables'
@@ -14,12 +13,6 @@ export class WorkflowApp {
   constructor(mainWorkflow: MainWorkflow, subworkflows: Subworkflow[] = []) {
     this.mainWorkflow = mainWorkflow
     this.subworkflows = subworkflows
-
-    if (
-      _.uniq(subworkflows.map((w) => w.name)).length !== subworkflows.length
-    ) {
-      throw new Error('Duplicate subworkflow names are not allowed')
-    }
   }
 
   render(): object {
@@ -79,10 +72,6 @@ export class BaseWorkflow {
 export class Subworkflow extends BaseWorkflow {
   // TODO: support optional parameters and default value
   constructor(name: string, steps: WorkflowStep[], params?: GWVariableName[]) {
-    if (name === 'main') {
-      throw new Error('Subworkflow can\'t be called "main"')
-    }
-
     super(name, steps, params)
   }
 }
