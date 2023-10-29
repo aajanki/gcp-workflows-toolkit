@@ -128,17 +128,17 @@ export class SwitchCondition {
 
   constructor(
     condition: GWExpression,
-    options: { next?: WorkflowStep; steps?: WorkflowStep[] }
+    options: { next: WorkflowStep } | { steps: WorkflowStep[] }
   ) {
-    if ((options.next && options.steps) || (!options.next && !options.steps)) {
-      throw new Error(
-        'Exactly one of "next" or "steps" must be defined in a switch condition'
-      )
-    }
-
     this.condition = condition
-    this.next = options.next
-    this.steps = options.steps ?? []
+
+    if ('next' in options) {
+      this.next = options.next
+      this.steps = []
+    } else {
+      this.next = undefined
+      this.steps = options.steps
+    }
   }
 
   render(): object {
@@ -153,7 +153,7 @@ export class SwitchCondition {
 
 export function condition(
   expression: GWExpression,
-  options: { next?: WorkflowStep; steps?: WorkflowStep[] }
+  options: { next: WorkflowStep } | { steps: WorkflowStep[] }
 ) {
   return new SwitchCondition(expression, options)
 }
