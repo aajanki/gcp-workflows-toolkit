@@ -32,3 +32,4 @@ export {
   WorkflowApp,
   toYAMLString,
 } from './workflows'
+export { WorkflowIssue, WorkflowValidationError, validate } from './validation'

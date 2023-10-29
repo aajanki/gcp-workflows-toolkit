@@ -59,9 +59,9 @@ say_hello:
 
 ### Validating a workflow definition
 
-`WorkflowApp.validate()` checks the workflow definition for common errors. If it detects an error, it throws an exception. Currently, the validator checks the workflow definition for duplicated step names.
+The `validate()` function checks the workflow definition for common errors. If it detects an error, it throws a WorkflowValidationError. Currently, the validator checks the workflow definition for duplicated step names.
 
 ```typescript
 const workflow = new WorkflowApp(...)
-workflow.validate()
+validate(workflow)
 ```
