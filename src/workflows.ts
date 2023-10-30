@@ -53,12 +53,17 @@ export class BaseWorkflow {
   }
 
   *iterateStepsDepthFirst(): IterableIterator<WorkflowStep> {
+    const visited = new Set()
+
     function* visitPreOrder(
       step: WorkflowStep
     ): IterableIterator<WorkflowStep> {
-      yield step
-      for (const x of step.steps) {
-        yield* visitPreOrder(x)
+      if (!visited.has(step)) {
+        visited.add(step)
+        yield step
+        for (const x of step.steps) {
+          yield* visitPreOrder(x)
+        }
       }
     }
 
