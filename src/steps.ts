@@ -288,7 +288,15 @@ export class ForStep implements WorkflowStep {
   readonly indexVariableName?: GWVariableName
   readonly listExpression: GWExpression | GWValue[]
 
-  constructor(name: GWStepName, options: {steps: WorkflowStep[]; loopVariable: GWVariableName, indexVariable?: GWVariableName; listExpression: GWExpression | GWValue[]}) {
+  constructor(
+    name: GWStepName,
+    options: {
+      steps: WorkflowStep[]
+      loopVariable: GWVariableName
+      indexVariable?: GWVariableName
+      listExpression: GWExpression | GWValue[]
+    }
+  ) {
     this.name = name
     this.steps = options.steps
     this.loopVariableName = options.loopVariable
@@ -310,7 +318,15 @@ export class ForStep implements WorkflowStep {
   }
 }
 
-export function forStep(name: GWStepName, options: {steps: WorkflowStep[]; loopVariable: GWVariableName, indexVariable?: GWVariableName; listExpression: GWExpression | GWValue[]}) {
+export function forStep(
+  name: GWStepName,
+  options: {
+    steps: WorkflowStep[]
+    loopVariable: GWVariableName
+    indexVariable?: GWVariableName
+    listExpression: GWExpression | GWValue[]
+  }
+) {
   return new ForStep(name, options)
 }
 
@@ -332,7 +348,7 @@ export class StepsStep implements WorkflowStep {
     return {
       [this.name]: {
         steps: this.steps.map((x) => x.render()),
-      }
+      },
     }
   }
 }
@@ -341,11 +357,12 @@ export function steps(name: GWStepName, steps: WorkflowStep[]) {
   return new StepsStep(name, steps)
 }
 
-// https://cloud.google.com/workflows/docs/reference/syntax/parallel-steps#parallel-branch
+// https://cloud.google.com/workflows/docs/reference/syntax/parallel-steps
 export class Parallel implements WorkflowStep {
   readonly name: GWStepName
   // Steps for each branch
-  readonly branches: StepsStep[]
+  readonly branches?: StepsStep[]
+  readonly forStep?: ForStep
   // All steps merged from all branches/for
   readonly steps: WorkflowStep[]
   readonly shared?: GWVariableName[]
@@ -353,26 +370,49 @@ export class Parallel implements WorkflowStep {
 
   constructor(
     name: GWStepName,
-    options: {
-      branches: StepsStep[]
-      shared?: GWVariableName[]
-      concurrencyLimit?: number
-    }
+    options:
+      | {
+          branches: StepsStep[]
+          shared?: GWVariableName[]
+          concurrencyLimit?: number
+        }
+      | {
+          forLoop: ForStep
+          shared?: GWVariableName[]
+          concurrencyLimit?: number
+        }
   ) {
     this.name = name
-    this.branches = options.branches
-    this.steps = options.branches.flatMap((x) => x.steps)
     this.shared = options.shared
     this.concurrenceLimit = options.concurrencyLimit
+
+    if ('branches' in options) {
+      this.branches = options.branches
+      this.steps = options.branches.flatMap((x) => x.steps)
+    } else {
+      this.forStep = options.forLoop
+      this.steps = options.forLoop.steps
+    }
   }
 
   render(): object {
+    let forBody = undefined
+    if (this.forStep) {
+      forBody = {
+        value: this.forStep.loopVariableName,
+        index: this.forStep.indexVariableName,
+        in: renderGWValue(this.forStep.listExpression),
+        steps: this.forStep.steps.map((x) => x.render()),
+      }
+    }
+
     return {
       [this.name]: {
         parallel: {
           shared: this.shared,
           concurrency_limit: this.concurrenceLimit,
-          branches: this.branches.map((x) => x.render()),
+          branches: this.branches?.map((x) => x.render()),
+          for: forBody,
         },
       },
     }
@@ -381,11 +421,17 @@ export class Parallel implements WorkflowStep {
 
 export function parallel(
   name: GWStepName,
-  options: {
-    branches: StepsStep[]
-    shared?: GWVariableName[]
-    concurrencyLimit?: number
-  }
+  options:
+    | {
+        branches: StepsStep[]
+        shared?: GWVariableName[]
+        concurrencyLimit?: number
+      }
+    | {
+        forLoop: ForStep
+        shared?: GWVariableName[]
+        concurrencyLimit?: number
+      }
 ) {
   return new Parallel(name, options)
 }

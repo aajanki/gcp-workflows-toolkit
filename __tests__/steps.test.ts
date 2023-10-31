@@ -233,9 +233,7 @@ describe('workflows step', () => {
     const step = forStep('loop', {
       loopVariable: 'v',
       listExpression: [1, 2, 3],
-      steps: [
-        assign('addStep', [['sum', $('sum + v')]])
-      ]
+      steps: [assign('addStep', [['sum', $('sum + v')]])],
     })
 
     const expected = YAML.parse(`
@@ -271,7 +269,7 @@ describe('workflows step', () => {
             },
           }),
         ]),
-      ]
+      ],
     })
 
     const expected = YAML.parse(`
@@ -325,6 +323,46 @@ describe('workflows step', () => {
                     - assign_2:
                         assign:
                           - myVariable[1]: 'Set in branch 2'
+    `)
+
+    expect(step.render()).toEqual(expected)
+  })
+
+  it('renders a parallel for step', () => {
+    const step = parallel('parallelFor', {
+      shared: ['total'],
+      forLoop: forStep('forStep', {
+        loopVariable: 'userId',
+        listExpression: ['11', '12', '13', '14'],
+        steps: [
+          call('getBalance', {
+            call: 'http.get',
+            args: {
+              url: $('"https://example.com/balance/" + userId'),
+            },
+            result: 'balance',
+          }),
+          assign('add', [['total', $('total + balance')]]),
+        ],
+      }),
+    })
+
+    const expected = YAML.parse(`
+    parallelFor:
+        parallel:
+            shared: [total]
+            for:
+                value: userId
+                in: ['11', '12', '13', '14']
+                steps:
+                  - getBalance:
+                      call: http.get
+                      args:
+                          url: \${"https://example.com/balance/" + userId}
+                      result: balance
+                  - add:
+                      assign:
+                        - total: \${total + balance}
     `)
 
     expect(step.render()).toEqual(expected)
