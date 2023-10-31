@@ -281,6 +281,82 @@ export function raise(name: GWStepName, value: GWValue) {
   return new RaiseStep(name, value)
 }
 
+// https://cloud.google.com/workflows/docs/reference/syntax/steps#embedded-steps
+export class StepsStep implements WorkflowStep {
+  readonly name: GWStepName
+  readonly steps: WorkflowStep[]
+
+  // Discriminates this from a generic WorkflowStep in type checking.
+  // @ts-ignore
+  private readonly _isStepsStep: boolean = true
+
+  constructor(name: GWStepName, steps: WorkflowStep[]) {
+    this.name = name
+    this.steps = steps
+  }
+
+  render(): object {
+    return {
+      [this.name]: {
+        steps: this.steps.map((x) => x.render()),
+      }
+    }
+  }
+}
+
+export function steps(name: GWStepName, steps: WorkflowStep[]) {
+  return new StepsStep(name, steps)
+}
+
+// https://cloud.google.com/workflows/docs/reference/syntax/parallel-steps#parallel-branch
+export class Parallel implements WorkflowStep {
+  readonly name: GWStepName
+  // Steps for each branch
+  readonly branches: StepsStep[]
+  // All steps merged from all branches/for
+  readonly steps: WorkflowStep[]
+  readonly shared?: GWVariableName[]
+  readonly concurrenceLimit?: number
+
+  constructor(
+    name: GWStepName,
+    options: {
+      branches: StepsStep[]
+      shared?: GWVariableName[]
+      concurrencyLimit?: number
+    }
+  ) {
+    this.name = name
+    this.branches = options.branches
+    this.steps = options.branches.flatMap((x) => x.steps)
+    this.shared = options.shared
+    this.concurrenceLimit = options.concurrencyLimit
+  }
+
+  render(): object {
+    return {
+      [this.name]: {
+        parallel: {
+          shared: this.shared,
+          concurrency_limit: this.concurrenceLimit,
+          branches: this.branches.map((x) => x.render()),
+        },
+      },
+    }
+  }
+}
+
+export function parallel(
+  name: GWStepName,
+  options: {
+    branches: StepsStep[]
+    shared?: GWVariableName[]
+    concurrencyLimit?: number
+  }
+) {
+  return new Parallel(name, options)
+}
+
 // https://cloud.google.com/workflows/docs/reference/syntax/completing
 export class EndStep implements WorkflowStep {
   readonly name: GWStepName = 'end'

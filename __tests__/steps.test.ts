@@ -7,9 +7,11 @@ import {
   condition,
   end,
   raise,
+  steps,
   switchStep,
   tryExcept,
   returnStep,
+  parallel,
 } from '../src/steps'
 import { Subworkflow } from '../src/workflows'
 
@@ -221,6 +223,84 @@ describe('workflows step', () => {
                               return: "Not found"
               - unknown_errors:
                   raise: \${e}
+    `)
+
+    expect(step.render()).toEqual(expected)
+  })
+
+  it('renders parallel branches', () => {
+    const step = parallel('parallel1', {
+      branches: [
+        steps('branch1', [
+          call('say_hello_1', {
+            call: 'sys.log',
+            args: {
+              text: 'Hello from branch 1',
+            },
+          }),
+        ]),
+        steps('branch2', [
+          call('say_hello_2', {
+            call: 'sys.log',
+            args: {
+              text: 'Hello from branch 2',
+            },
+          }),
+        ]),
+      ]
+    })
+
+    const expected = YAML.parse(`
+    parallel1:
+        parallel:
+            branches:
+              - branch1:
+                  steps:
+                    - say_hello_1:
+                        call: sys.log
+                        args:
+                            text: Hello from branch 1
+              - branch2:
+                  steps:
+                    - say_hello_2:
+                        call: sys.log
+                        args:
+                            text: Hello from branch 2
+    `)
+
+    expect(step.render()).toEqual(expected)
+  })
+
+  it('renders parallel branches with shared variables and concurrency limit', () => {
+    const step = parallel('parallel1', {
+      branches: [
+        steps('branch1', [
+          assign('assign_1', [['myVariable[0]', 'Set in branch 1']]),
+        ]),
+        steps('branch2', [
+          assign('assign_2', [['myVariable[1]', 'Set in branch 2']]),
+        ]),
+      ],
+      shared: ['myVariable'],
+      concurrencyLimit: 2,
+    })
+
+    const expected = YAML.parse(`
+    parallel1:
+        parallel:
+            shared: [myVariable]
+            concurrency_limit: 2
+            branches:
+              - branch1:
+                  steps:
+                    - assign_1:
+                        assign:
+                          - myVariable[0]: 'Set in branch 1'
+              - branch2:
+                  steps:
+                    - assign_2:
+                        assign:
+                          - myVariable[1]: 'Set in branch 2'
     `)
 
     expect(step.render()).toEqual(expected)
