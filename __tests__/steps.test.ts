@@ -12,6 +12,7 @@ import {
   tryExcept,
   returnStep,
   parallel,
+  forStep,
 } from '../src/steps'
 import { Subworkflow } from '../src/workflows'
 
@@ -223,6 +224,29 @@ describe('workflows step', () => {
                               return: "Not found"
               - unknown_errors:
                   raise: \${e}
+    `)
+
+    expect(step.render()).toEqual(expected)
+  })
+
+  it('renders a for step', () => {
+    const step = forStep('loop', {
+      loopVariable: 'v',
+      listExpression: [1, 2, 3],
+      steps: [
+        assign('addStep', [['sum', $('sum + v')]])
+      ]
+    })
+
+    const expected = YAML.parse(`
+    loop:
+        for:
+            value: v
+            in: [1, 2, 3]
+            steps:
+              - addStep:
+                  assign:
+                    - sum: \${sum + v}
     `)
 
     expect(step.render()).toEqual(expected)

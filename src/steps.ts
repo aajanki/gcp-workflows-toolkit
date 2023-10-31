@@ -281,6 +281,39 @@ export function raise(name: GWStepName, value: GWValue) {
   return new RaiseStep(name, value)
 }
 
+export class ForStep implements WorkflowStep {
+  readonly name: GWStepName
+  readonly steps: WorkflowStep[]
+  readonly loopVariableName: GWVariableName
+  readonly indexVariableName?: GWVariableName
+  readonly listExpression: GWExpression | GWValue[]
+
+  constructor(name: GWStepName, options: {steps: WorkflowStep[]; loopVariable: GWVariableName, indexVariable?: GWVariableName; listExpression: GWExpression | GWValue[]}) {
+    this.name = name
+    this.steps = options.steps
+    this.loopVariableName = options.loopVariable
+    this.indexVariableName = options.indexVariable
+    this.listExpression = options.listExpression
+  }
+
+  render(): object {
+    return {
+      [this.name]: {
+        for: {
+          value: this.loopVariableName,
+          index: this.indexVariableName,
+          in: renderGWValue(this.listExpression),
+          steps: this.steps.map((x) => x.render()),
+        },
+      },
+    }
+  }
+}
+
+export function forStep(name: GWStepName, options: {steps: WorkflowStep[]; loopVariable: GWVariableName, indexVariable?: GWVariableName; listExpression: GWExpression | GWValue[]}) {
+  return new ForStep(name, options)
+}
+
 // https://cloud.google.com/workflows/docs/reference/syntax/steps#embedded-steps
 export class StepsStep implements WorkflowStep {
   readonly name: GWStepName
