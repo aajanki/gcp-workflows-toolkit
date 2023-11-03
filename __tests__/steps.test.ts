@@ -183,7 +183,7 @@ describe('workflows step', () => {
   })
 
   it('renders a try step', () => {
-    const potentiallyFailingStep = call('step2', {
+    const potentiallyFailingStep = call('http_step', {
       call: 'http.get',
       args: {
         url: 'https://maybe.failing.test/',
@@ -208,11 +208,192 @@ describe('workflows step', () => {
     step1:
         try:
             steps:
-              - step2:
+              - http_step:
                     call: http.get
                     args:
                         url: https://maybe.failing.test/
                     result: response
+        except:
+            as: e
+            steps:
+              - known_errors:
+                  switch:
+                      - condition: \${e.code == 404}
+                        steps:
+                          - return_error:
+                              return: "Not found"
+              - unknown_errors:
+                  raise: \${e}
+    `)
+
+    expect(step.render()).toEqual(expected)
+  })
+
+  it('renders a try step with a default retry policy', () => {
+    const potentiallyFailingStep = call('http_step', {
+      call: 'http.get',
+      args: {
+        url: 'https://maybe.failing.test/',
+      },
+      result: 'response',
+    })
+    const knownErrors = switchStep('known_errors', {
+      conditions: [
+        condition($('e.code == 404'), {
+          steps: [returnStep('return_error', 'Not found')],
+        }),
+      ],
+    })
+    const unknownErrors = raise('unknown_errors', $('e'))
+    const step = tryExcept('step1', {
+      steps: [potentiallyFailingStep],
+      retryPolicy: 'http.default_retry',
+      errorMap: 'e',
+      exceptSteps: [knownErrors, unknownErrors],
+    })
+
+    const expected = YAML.parse(`
+    step1:
+        try:
+            steps:
+              - http_step:
+                    call: http.get
+                    args:
+                        url: https://maybe.failing.test/
+                    result: response
+        retry: \${http.default_retry}
+        except:
+            as: e
+            steps:
+              - known_errors:
+                  switch:
+                      - condition: \${e.code == 404}
+                        steps:
+                          - return_error:
+                              return: "Not found"
+              - unknown_errors:
+                  raise: \${e}
+    `)
+
+    expect(step.render()).toEqual(expected)
+  })
+
+  it('renders a try step with a custom retry policy', () => {
+    const potentiallyFailingStep = call('http_step', {
+      call: 'http.get',
+      args: {
+        url: 'https://maybe.failing.test/',
+      },
+      result: 'response',
+    })
+    const knownErrors = switchStep('known_errors', {
+      conditions: [
+        condition($('e.code == 404'), {
+          steps: [returnStep('return_error', 'Not found')],
+        }),
+      ],
+    })
+    const unknownErrors = raise('unknown_errors', $('e'))
+    const step = tryExcept('step1', {
+      steps: [potentiallyFailingStep],
+      retryPolicy: {
+        predicate: 'http.default_retry',
+        maxRetries: 10,
+        backoff: {
+          initialDelay: 0.5,
+          maxDelay: 60,
+          multiplier: 2,
+        },
+      },
+      errorMap: 'e',
+      exceptSteps: [knownErrors, unknownErrors],
+    })
+
+    const expected = YAML.parse(`
+    step1:
+        try:
+            steps:
+              - http_step:
+                    call: http.get
+                    args:
+                        url: https://maybe.failing.test/
+                    result: response
+        retry:
+            predicate: \${http.default_retry}
+            max_retries: 10
+            backoff:
+                initial_delay: 0.5
+                max_delay: 60
+                multiplier: 2
+        except:
+            as: e
+            steps:
+              - known_errors:
+                  switch:
+                      - condition: \${e.code == 404}
+                        steps:
+                          - return_error:
+                              return: "Not found"
+              - unknown_errors:
+                  raise: \${e}
+    `)
+
+    expect(step.render()).toEqual(expected)
+  })
+
+  it('renders a try step with a subworkflow as a retry predicate', () => {
+    const predicateSubworkflow = new Subworkflow(
+      'my_retry_predicate',
+      [returnStep('always_retry', true)],
+      ['e']
+    )
+
+    const potentiallyFailingStep = call('http_step', {
+      call: 'http.get',
+      args: {
+        url: 'https://maybe.failing.test/',
+      },
+      result: 'response',
+    })
+    const knownErrors = switchStep('known_errors', {
+      conditions: [
+        condition($('e.code == 404'), {
+          steps: [returnStep('return_error', 'Not found')],
+        }),
+      ],
+    })
+    const unknownErrors = raise('unknown_errors', $('e'))
+    const step = tryExcept('step1', {
+      steps: [potentiallyFailingStep],
+      retryPolicy: {
+        predicate: predicateSubworkflow,
+        maxRetries: 3,
+        backoff: {
+          initialDelay: 2,
+          maxDelay: 60,
+          multiplier: 4,
+        },
+      },
+      errorMap: 'e',
+      exceptSteps: [knownErrors, unknownErrors],
+    })
+
+    const expected = YAML.parse(`
+    step1:
+        try:
+            steps:
+              - http_step:
+                    call: http.get
+                    args:
+                        url: https://maybe.failing.test/
+                    result: response
+        retry:
+            predicate: \${my_retry_predicate}
+            max_retries: 3
+            backoff:
+                initial_delay: 2
+                max_delay: 60
+                multiplier: 4
         except:
             as: e
             steps:

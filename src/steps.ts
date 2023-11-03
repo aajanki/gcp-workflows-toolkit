@@ -205,9 +205,23 @@ export function switchStep(
   return new SwitchStep(name, options)
 }
 
+export type DefaultRetryPolicy =
+  | 'http.default_retry'
+  | 'http.default_retry_non_idempotent'
+export interface CustomRetryPolicy {
+  predicate: DefaultRetryPolicy | Subworkflow
+  maxRetries: number
+  backoff: {
+    initialDelay: number
+    maxDelay: number
+    multiplier: number
+  }
+}
+
 // https://cloud.google.com/workflows/docs/reference/syntax/catching-errors
 export class TryExceptStep implements WorkflowStep {
   readonly name: GWStepName
+  readonly retryPolicy?: string | CustomRetryPolicy
   readonly errorMap?: GWStepName
   // Steps in the try block
   readonly trySteps: WorkflowStep[]
@@ -220,23 +234,47 @@ export class TryExceptStep implements WorkflowStep {
     name: GWStepName,
     options: {
       steps: WorkflowStep[]
+      retryPolicy?: DefaultRetryPolicy | CustomRetryPolicy
       errorMap?: GWVariableName
       exceptSteps: WorkflowStep[]
     }
   ) {
     this.name = name
     this.trySteps = options.steps
+    this.retryPolicy = options.retryPolicy
     this.errorMap = options.errorMap
     this.exceptSteps = options.exceptSteps
     this.steps = (options.steps ?? []).concat(options.exceptSteps ?? [])
   }
 
   render(): object {
+    let retry
+    if (typeof this.retryPolicy === 'undefined') {
+      retry = undefined
+    } else if (typeof this.retryPolicy === 'string') {
+      retry = `\$\{${this.retryPolicy}\}`
+    } else {
+      const predicateName =
+        typeof this.retryPolicy.predicate === 'string'
+          ? this.retryPolicy.predicate
+          : this.retryPolicy.predicate.name
+      retry = {
+        predicate: `\$\{${predicateName}\}`,
+        max_retries: this.retryPolicy.maxRetries,
+        backoff: {
+          initial_delay: this.retryPolicy.backoff.initialDelay,
+          max_delay: this.retryPolicy.backoff.maxDelay,
+          multiplier: this.retryPolicy.backoff.multiplier,
+        },
+      }
+    }
+
     return {
       [this.name]: {
         try: {
           steps: this.trySteps.map((x) => x.render()),
         },
+        retry: retry,
         except: {
           as: this.errorMap,
           steps: this.exceptSteps.map((x) => x.render()),
@@ -250,6 +288,7 @@ export function tryExcept(
   name: GWStepName,
   options: {
     steps: WorkflowStep[]
+    retryPolicy?: DefaultRetryPolicy | CustomRetryPolicy
     errorMap?: GWVariableName
     exceptSteps: WorkflowStep[]
   }
