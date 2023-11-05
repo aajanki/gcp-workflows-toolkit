@@ -18,16 +18,22 @@ export type WorkflowIssue = { type: string; message: string }
  *
  * Throws a WorkflowValidationError if there are errors.
  */
-export function validate(app: WorkflowApp): void {
-  const validators = [
-    validateNoDuplicateStepNames,
-    validateWorkflowNames,
-    validateNoDuplicateSubworkflowNames,
-    validateJumpTargets,
-  ]
+export function validate(app: WorkflowApp, disabled: string[] = []): void {
+  const validators = new Map([
+    ['invalidWorkflowName', validateWorkflowNames],
+    ['duplicatedStepName', validateNoDuplicateStepNames],
+    ['duplicatedSubworkflowName', validateNoDuplicateSubworkflowNames],
+    ['missingJumpTarget', validateJumpTargets],
+  ])
+
+  for (const dis of disabled) {
+    if (validators.has(dis)) {
+      validators.delete(dis)
+    }
+  }
 
   const issues: WorkflowIssue[] = []
-  for (const validator of validators) {
+  for (const validator of validators.values()) {
     issues.push(...validator(app))
   }
 
@@ -134,9 +140,15 @@ function validateWorkflowNames(app: WorkflowApp): WorkflowIssue[] {
   return issues
 }
 
+/**
+ * Check that there are no jumps (calls, nexts) to non-existing steps or subworkflows
+ */
 function validateJumpTargets(app: WorkflowApp): WorkflowIssue[] {
   const subworkflowNames = app.subworkflows.map((w) => w.name)
-  const issues = validateJumpTargetsInWorkflow(app.mainWorkflow, subworkflowNames)
+  const issues = validateJumpTargetsInWorkflow(
+    app.mainWorkflow,
+    subworkflowNames
+  )
   const issuesSubWorflows = app.subworkflows.flatMap((subworkflow) => {
     return validateJumpTargetsInWorkflow(subworkflow, subworkflowNames)
   })
@@ -144,15 +156,22 @@ function validateJumpTargets(app: WorkflowApp): WorkflowIssue[] {
   return issues.concat(issuesSubWorflows)
 }
 
-function validateJumpTargetsInWorkflow(workflow: BaseWorkflow, subworkflowNames: string[]): WorkflowIssue[] {
+function validateJumpTargetsInWorkflow(
+  workflow: BaseWorkflow,
+  subworkflowNames: string[]
+): WorkflowIssue[] {
   const issues: WorkflowIssue[] = []
-  const stepNames: string[] =  []
+  const stepNames: string[] = []
   for (const step of workflow.iterateStepsDepthFirst()) {
     stepNames.push(step.name)
   }
 
   function validCallTarget(name: string) {
-    return isRuntimeFunction(name) || stepNames.includes(name) || subworkflowNames.includes(name)
+    return (
+      isRuntimeFunction(name) ||
+      stepNames.includes(name) ||
+      subworkflowNames.includes(name)
+    )
   }
 
   function validNextTarget(name: string) {
@@ -162,10 +181,10 @@ function validateJumpTargetsInWorkflow(workflow: BaseWorkflow, subworkflowNames:
   for (const step of workflow.iterateStepsDepthFirst()) {
     if (step instanceof CallStep) {
       if (!validCallTarget(step.call))
-      issues.push({
-        type: 'missingJumpTarget',
-        message: `Call target "${step.call}" in step "${step.name}" not found`,
-      })
+        issues.push({
+          type: 'missingJumpTarget',
+          message: `Call target "${step.call}" in step "${step.name}" not found`,
+        })
     } else if (step instanceof SwitchStep) {
       if (step.next && !validNextTarget(step.next)) {
         issues.push({

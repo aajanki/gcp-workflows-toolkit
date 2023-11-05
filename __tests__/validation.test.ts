@@ -19,6 +19,22 @@ describe('Validator', () => {
     expect(() => validate(wf)).not.toThrow()
   })
 
+  it('can disable selected validators', () => {
+    const steps = [
+      assign('duplicated_name', [['name', 'Fry']]),
+      call('duplicated_name', {
+        call: 'sys.log',
+        args: {
+          text: $('"Hello, " + name'),
+        },
+      }),
+    ]
+    const wf = new WorkflowApp(new MainWorkflow(steps))
+    const disabled = ['duplicatedStepName']
+
+    expect(() => validate(wf, disabled)).not.toThrow(WorkflowValidationError)
+  })
+
   it('detects duplicate step names in the main workflow', () => {
     const steps = [
       assign('duplicated_name', [['name', 'Fry']]),
@@ -150,22 +166,22 @@ describe('Validator', () => {
     const step2 = call('step2', {
       call: 'sys.log',
       args: {
-        text: 'Logging from step 2'
-      }
+        text: 'Logging from step 2',
+      },
     })
     const step3 = call('step3', {
       call: 'sys.log',
       args: {
-        text: 'Logging from step 3'
-      }
+        text: 'Logging from step 3',
+      },
     })
     const switch1 = switchStep('step1', {
       conditions: [
         condition($('input == 1'), {
-          next: step3
-        })
+          next: step3,
+        }),
       ],
-      next: step2
+      next: step2,
     })
     const main = new MainWorkflow([switch1, step3], 'input')
     const wf = new WorkflowApp(main, [sub1, sub2])
@@ -179,22 +195,22 @@ describe('Validator', () => {
     const step2 = call('step2', {
       call: 'sys.log',
       args: {
-        text: 'Logging from step 2'
-      }
+        text: 'Logging from step 2',
+      },
     })
     const step3 = call('step3', {
       call: 'sys.log',
       args: {
-        text: 'Logging from step 3'
-      }
+        text: 'Logging from step 3',
+      },
     })
     const switch1 = switchStep('step1', {
       conditions: [
         condition($('input == 1'), {
-          next: sub1
-        })
+          next: sub1,
+        }),
       ],
-      next: step2
+      next: step2,
     })
     const main = new MainWorkflow([switch1, step2, step3], 'input')
     const wf = new WorkflowApp(main, [sub2])
