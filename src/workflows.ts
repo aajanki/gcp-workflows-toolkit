@@ -53,9 +53,6 @@ export class BaseWorkflow {
   }
 
   *iterateStepsDepthFirst(): IterableIterator<WorkflowStep> {
-    // FIXME: this should return only steps that are actually included in the
-    // workflow, not steps that are referenced but not included
-
     const visited = new Set()
 
     function* visitPreOrder(
@@ -64,7 +61,7 @@ export class BaseWorkflow {
       if (!visited.has(step)) {
         visited.add(step)
         yield step
-        for (const x of step.steps) {
+        for (const x of step.nestedSteps) {
           yield* visitPreOrder(x)
         }
       }
