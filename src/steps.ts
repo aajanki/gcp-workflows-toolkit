@@ -250,14 +250,14 @@ export class TryExceptStep implements WorkflowStep {
     if (typeof this.retryPolicy === 'undefined') {
       retry = undefined
     } else if (typeof this.retryPolicy === 'string') {
-      retry = `\$\{${this.retryPolicy}\}`
+      retry = `\${${this.retryPolicy}}`
     } else {
       const predicateName =
         typeof this.retryPolicy.predicate === 'string'
           ? this.retryPolicy.predicate
           : this.retryPolicy.predicate.name
       retry = {
-        predicate: `\$\{${predicateName}\}`,
+        predicate: `\${${predicateName}}`,
         max_retries: this.retryPolicy.maxRetries,
         backoff: {
           initial_delay: this.retryPolicy.backoff.initialDelay,
