@@ -142,4 +142,73 @@ describe('Validator', () => {
 
     expect(() => validate(wf)).toThrow(WorkflowValidationError)
   })
+
+  // XFAIL: This passes although it shouldn't because the step iterator includes step2
+  it.failing('detects a missing next target', () => {
+    const sub1 = new Subworkflow('subworkflow1', [returnStep('return1', '1')])
+    const sub2 = new Subworkflow('subworkflow2', [returnStep('return2', '2')])
+    const step2 = call('step2', {
+      call: 'sys.log',
+      args: {
+        text: 'Logging from step 2'
+      }
+    })
+    const step3 = call('step3', {
+      call: 'sys.log',
+      args: {
+        text: 'Logging from step 3'
+      }
+    })
+    const switch1 = switchStep('step1', {
+      conditions: [
+        condition($('input == 1'), {
+          next: step3
+        })
+      ],
+      next: step2
+    })
+    const main = new MainWorkflow([switch1, step3], 'input')
+    const wf = new WorkflowApp(main, [sub1, sub2])
+
+    expect(() => validate(wf)).toThrow(WorkflowValidationError)
+  })
+
+  it('detects a missing subworkflow', () => {
+    const sub1 = new Subworkflow('subworkflow1', [returnStep('return1', '1')])
+    const sub2 = new Subworkflow('subworkflow2', [returnStep('return2', '2')])
+    const step2 = call('step2', {
+      call: 'sys.log',
+      args: {
+        text: 'Logging from step 2'
+      }
+    })
+    const step3 = call('step3', {
+      call: 'sys.log',
+      args: {
+        text: 'Logging from step 3'
+      }
+    })
+    const switch1 = switchStep('step1', {
+      conditions: [
+        condition($('input == 1'), {
+          next: sub1
+        })
+      ],
+      next: step2
+    })
+    const main = new MainWorkflow([switch1, step2, step3], 'input')
+    const wf = new WorkflowApp(main, [sub2])
+
+    expect(() => validate(wf)).toThrow(WorkflowValidationError)
+  })
+
+  it('detects a missing call target subworkflow', () => {
+    const sub1 = new Subworkflow('subworkflow1', [returnStep('return1', '1')])
+    const sub2 = new Subworkflow('subworkflow2', [returnStep('return2', '2')])
+    const call1 = call('call1', { call: sub1 })
+    const main = new MainWorkflow([call1], 'input')
+    const wf = new WorkflowApp(main, [sub2])
+
+    expect(() => validate(wf)).toThrow(WorkflowValidationError)
+  })
 })

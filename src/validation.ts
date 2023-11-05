@@ -1,3 +1,4 @@
+import { CallStep, SwitchStep } from './steps'
 import { BaseWorkflow, WorkflowApp } from './workflows'
 
 export class WorkflowValidationError extends Error {
@@ -22,6 +23,7 @@ export function validate(app: WorkflowApp): void {
     validateNoDuplicateStepNames,
     validateWorkflowNames,
     validateNoDuplicateSubworkflowNames,
+    validateJumpTargets,
   ]
 
   const issues: WorkflowIssue[] = []
@@ -130,4 +132,68 @@ function validateWorkflowNames(app: WorkflowApp): WorkflowIssue[] {
   }
 
   return issues
+}
+
+function validateJumpTargets(app: WorkflowApp): WorkflowIssue[] {
+  const subworkflowNames = app.subworkflows.map((w) => w.name)
+  const issues = validateJumpTargetsInWorkflow(app.mainWorkflow, subworkflowNames)
+  const issuesSubWorflows = app.subworkflows.flatMap((subworkflow) => {
+    return validateJumpTargetsInWorkflow(subworkflow, subworkflowNames)
+  })
+
+  return issues.concat(issuesSubWorflows)
+}
+
+function validateJumpTargetsInWorkflow(workflow: BaseWorkflow, subworkflowNames: string[]): WorkflowIssue[] {
+  const issues: WorkflowIssue[] = []
+  const stepNames: string[] =  []
+  for (const step of workflow.iterateStepsDepthFirst()) {
+    stepNames.push(step.name)
+  }
+
+  function validCallTarget(name: string) {
+    return isRuntimeFunction(name) || stepNames.includes(name) || subworkflowNames.includes(name)
+  }
+
+  function validNextTarget(name: string) {
+    return stepNames.includes(name) || name === 'end' // accepts "next: end"
+  }
+
+  for (const step of workflow.iterateStepsDepthFirst()) {
+    if (step instanceof CallStep) {
+      if (!validCallTarget(step.call))
+      issues.push({
+        type: 'missingJumpTarget',
+        message: `Call target "${step.call}" in step "${step.name}" not found`,
+      })
+    } else if (step instanceof SwitchStep) {
+      if (step.next && !validNextTarget(step.next)) {
+        issues.push({
+          type: 'missingJumpTarget',
+          message: `Next target "${step.next}" in step "${step.name}" not found`,
+        })
+      }
+
+      step.conditions.forEach((cond) => {
+        if (cond.next && !validNextTarget(cond.next.name)) {
+          issues.push({
+            type: 'missingJumpTarget',
+            message: `Next target "${cond.next.name}" in step "${step.name}" not found`,
+          })
+        }
+      })
+    }
+  }
+
+  return issues
+}
+
+/**
+ * Returns true if functionName is a standard library or connector function.
+ *
+ * Current version does a minimalistic checking and assumes that a name is a
+ * standard library function if it contains a dot.
+ */
+function isRuntimeFunction(functionName: string) {
+  return functionName.includes('.')
 }

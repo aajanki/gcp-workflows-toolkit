@@ -53,6 +53,9 @@ export class BaseWorkflow {
   }
 
   *iterateStepsDepthFirst(): IterableIterator<WorkflowStep> {
+    // FIXME: this should return only steps that are actually included in the
+    // workflow, not steps that are referenced but not included
+
     const visited = new Set()
 
     function* visitPreOrder(
