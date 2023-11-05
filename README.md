@@ -57,6 +57,12 @@ say_hello:
           text: ${"Hello, " + name}
 ```
 
+More samples:
+
+```
+npx ts-node examples/examples2.ts
+```
+
 ### Validating a workflow definition
 
 The `validate()` function checks the workflow definition for common errors. If it detects an error, it throws a WorkflowValidationError.

@@ -10,7 +10,7 @@ import {
   toYAMLString,
   tryExcept,
   $,
-} from '../dist/index.js'
+} from '../src/index'
 
 function main() {
   const subworkflow = getOrderSubworkflow()

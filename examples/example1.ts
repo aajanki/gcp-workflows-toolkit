@@ -5,7 +5,7 @@ import {
   call,
   toYAMLString,
   $,
-} from '../dist/index.js'
+} from '../src/index'
 
 function main() {
   const subworkflow = new Subworkflow(
