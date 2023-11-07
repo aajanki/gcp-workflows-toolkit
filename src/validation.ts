@@ -1,3 +1,4 @@
+import * as _ from 'lodash'
 import { CallStep, SwitchStep } from './steps'
 import { BaseWorkflow, WorkflowApp } from './workflows'
 
@@ -24,6 +25,7 @@ export function validate(app: WorkflowApp, disabled: string[] = []): void {
     ['duplicatedStepName', validateNoDuplicateStepNames],
     ['duplicatedSubworkflowName', validateNoDuplicateSubworkflowNames],
     ['missingJumpTarget', validateJumpTargets],
+    ['wrongNumberOfCallArguments', validateSubworkflowArguments],
   ])
 
   for (const dis of disabled) {
@@ -50,7 +52,7 @@ function validateNoDuplicateStepNames(app: WorkflowApp): WorkflowIssue[] {
     const seen: Set<string> = new Set()
     const duplicates: Set<string> = new Set()
 
-    for (const {name} of wf.iterateStepsDepthFirst()) {
+    for (const { name } of wf.iterateStepsDepthFirst()) {
       if (seen.has(name)) {
         duplicates.add(name)
       } else {
@@ -162,7 +164,7 @@ function validateJumpTargetsInWorkflow(
 ): WorkflowIssue[] {
   const issues: WorkflowIssue[] = []
   const stepNames: string[] = []
-  for (const {name} of workflow.iterateStepsDepthFirst()) {
+  for (const { name } of workflow.iterateStepsDepthFirst()) {
     stepNames.push(name)
   }
 
@@ -178,7 +180,7 @@ function validateJumpTargetsInWorkflow(
     return stepNames.includes(name) || name === 'end' // accepts "next: end"
   }
 
-  for (const {name, step} of workflow.iterateStepsDepthFirst()) {
+  for (const { name, step } of workflow.iterateStepsDepthFirst()) {
     if (step instanceof CallStep) {
       if (!validCallTarget(step.call))
         issues.push({
@@ -201,6 +203,64 @@ function validateJumpTargetsInWorkflow(
           })
         }
       })
+    }
+  }
+
+  return issues
+}
+
+/**
+ * Check that call steps provide a correct number of argument in subworkflow calls
+ */
+function validateSubworkflowArguments(app: WorkflowApp): WorkflowIssue[] {
+  const issues: WorkflowIssue[] = []
+
+  const paramsBySubworkflowName = new Map(
+    app.subworkflows.map((x) => [x.name, x.params ?? []])
+  )
+
+  issues.push(
+    ...findIssuesInCallArguments(app.mainWorkflow, paramsBySubworkflowName)
+  )
+  app.subworkflows.forEach((subw) => {
+    issues.push(...findIssuesInCallArguments(subw, paramsBySubworkflowName))
+  })
+
+  return issues
+}
+
+function findIssuesInCallArguments(
+  wf: BaseWorkflow,
+  argumentBySubworkflowName: Map<string, string[]>
+): WorkflowIssue[] {
+  const issues: WorkflowIssue[] = []
+
+  for (const { name, step } of wf.iterateStepsDepthFirst()) {
+    if (step instanceof CallStep) {
+      const requiredArgs = argumentBySubworkflowName.get(step.call)
+      if (requiredArgs) {
+        const providedArgs = Object.keys(step.args ?? {})
+        const requiredButNotProvided = _.difference(requiredArgs, providedArgs)
+        const providedButNotRequired = _.difference(providedArgs, requiredArgs)
+
+        if (requiredButNotProvided.length > 0) {
+          issues.push({
+            type: 'wrongNumberOfCallArguments',
+            message: `Required parameters not provided on call step "${name}": ${JSON.stringify(
+              requiredButNotProvided
+            )}`,
+          })
+        }
+
+        if (providedButNotRequired.length > 0) {
+          issues.push({
+            type: 'wrongNumberOfCallArguments',
+            message: `Extra arguments provided on call step "${name}": ${JSON.stringify(
+              providedButNotRequired
+            )}`,
+          })
+        }
+      }
     }
   }
 

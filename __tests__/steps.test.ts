@@ -19,7 +19,7 @@ import { Subworkflow } from '../src/workflows'
 
 describe('workflows step', () => {
   it('renders an assign step', () => {
-    const {step} = assign('step1', [
+    const { step } = assign('step1', [
       ['city', 'New New York'],
       ['value', $('1 + 2')],
     ])
@@ -34,7 +34,7 @@ describe('workflows step', () => {
   })
 
   it('assigns variables with index notation', () => {
-    const {step} = assign('update_list', [
+    const { step } = assign('update_list', [
       ['my_list', [0, 1, 2, 3, 4]],
       ['idx', 0],
       ['my_list[0]', 'Value0'],
@@ -55,7 +55,7 @@ describe('workflows step', () => {
   })
 
   it('renders a simple call step', () => {
-    const {step} = call('step1', {
+    const { step } = call('step1', {
       call: 'destination_step',
     })
 
@@ -67,7 +67,7 @@ describe('workflows step', () => {
   })
 
   it('renders a call step with arguments and result', () => {
-    const {step} = call('step1', {
+    const { step } = call('step1', {
       call: 'deliver_package',
       args: {
         destination: 'Atlanta',
@@ -88,7 +88,7 @@ describe('workflows step', () => {
   })
 
   it('renders a call step with an expression as an argument', () => {
-    const {step} = call('step1', {
+    const { step } = call('step1', {
       call: 'deliver_package',
       args: {
         destination: $('destinations[i]'),
@@ -104,50 +104,10 @@ describe('workflows step', () => {
     expect(step.render()).toEqual(expected)
   })
 
-  /*
-  it('throws if a required call argument is not provided', () => {
-    const requiredParams = ['arg1', 'arg2']
-    const subworkflow = new Subworkflow(
-      'subworkflow1',
-      [returnStep('return1', '1')],
-      requiredParams
-    )
-
-    expect(() => {
-      call('step1', {
-        call: subworkflow,
-        args: {
-          arg1: 'value1',
-        },
-      })
-    }).toThrow('Required parameter not provided')
-  })
-
-  it('throws if call step has too many arguments', () => {
-    const requiredParams = ['arg1', 'arg2']
-    const subworkflow = new Subworkflow(
-      'subworkflow1',
-      [returnStep('return1', '1')],
-      requiredParams
-    )
-
-    expect(() => {
-      call('step1', {
-        call: subworkflow,
-        args: {
-          arg1: 'value1',
-          arg2: 'value2',
-          extra_argument: '',
-        },
-      })
-    }).toThrow('Extra arguments provided')
-  })
-  */
-
   it('renders a switch step', () => {
     const assign1 = assign('increase_counter', [['a', $('mars_counter + 1')]])
     const return1 = returnStep('return_counter', $('a'))
-    const {step} = switchStep('step1', {
+    const { step } = switchStep('step1', {
       conditions: [
         condition($('city = "New New York"'), {
           next: 'destination_new_new_york',
@@ -192,7 +152,7 @@ describe('workflows step', () => {
       ],
     })
     const unknownErrors = raise('unknown_errors', $('e'))
-    const {step} = tryExcept('step1', {
+    const { step } = tryExcept('step1', {
       steps: [potentiallyFailingStep],
       errorMap: 'e',
       exceptSteps: [knownErrors, unknownErrors],
@@ -238,7 +198,7 @@ describe('workflows step', () => {
       ],
     })
     const unknownErrors = raise('unknown_errors', $('e'))
-    const {step} = tryExcept('step1', {
+    const { step } = tryExcept('step1', {
       steps: [potentiallyFailingStep],
       retryPolicy: 'http.default_retry',
       errorMap: 'e',
@@ -286,7 +246,7 @@ describe('workflows step', () => {
       ],
     })
     const unknownErrors = raise('unknown_errors', $('e'))
-    const {step} = tryExcept('step1', {
+    const { step } = tryExcept('step1', {
       steps: [potentiallyFailingStep],
       retryPolicy: {
         predicate: 'http.default_retry',
@@ -354,7 +314,7 @@ describe('workflows step', () => {
       ],
     })
     const unknownErrors = raise('unknown_errors', $('e'))
-    const {step} = tryExcept('step1', {
+    const { step } = tryExcept('step1', {
       steps: [potentiallyFailingStep],
       retryPolicy: {
         predicate: predicateSubworkflow,
@@ -401,7 +361,7 @@ describe('workflows step', () => {
   })
 
   it('renders a for step', () => {
-    const {step} = forStep('loop', {
+    const { step } = forStep('loop', {
       loopVariable: 'v',
       listExpression: [1, 2, 3],
       steps: [assign('addStep', [['sum', $('sum + v')]])],
@@ -421,7 +381,7 @@ describe('workflows step', () => {
   })
 
   it('renders parallel branches', () => {
-    const {step} = parallel('parallel1', {
+    const { step } = parallel('parallel1', {
       branches: [
         stepsStep('branch1', [
           call('say_hello_1', {
@@ -463,7 +423,7 @@ describe('workflows step', () => {
   })
 
   it('renders parallel branches with shared variables and concurrency limit', () => {
-    const {step} = parallel('parallel1', {
+    const { step } = parallel('parallel1', {
       branches: [
         stepsStep('branch1', [
           assign('assign_1', [['myVariable[0]', 'Set in branch 1']]),
@@ -497,7 +457,7 @@ describe('workflows step', () => {
   })
 
   it('renders a parallel for step', () => {
-    const {step} = parallel('parallelFor', {
+    const { step } = parallel('parallelFor', {
       shared: ['total'],
       forLoop: new ForStep(
         [

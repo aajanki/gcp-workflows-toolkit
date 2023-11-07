@@ -11,7 +11,7 @@ export interface WorkflowStep {
   nestedSteps(): NamedWorkflowStep[]
 }
 
-export type NamedWorkflowStep = {name: GWStepName, step: WorkflowStep}
+export type NamedWorkflowStep = { name: GWStepName; step: WorkflowStep }
 
 export const end = 'end'
 
@@ -83,7 +83,10 @@ export function call(
   name: GWStepName,
   options: { call: string | Subworkflow; args?: GWArguments; result?: string }
 ): NamedWorkflowStep {
-  return { name, step: new CallStep(options.call, options.args, options.result) }
+  return {
+    name,
+    step: new CallStep(options.call, options.args, options.result),
+  }
 }
 
 // A class representing the individual branches of a switch step
@@ -350,7 +353,7 @@ export function stepsStep(
   name: GWStepName,
   steps: NamedWorkflowStep[]
 ): NamedWorkflowStep {
-  return {name, step: new StepsStep(steps)}
+  return { name, step: new StepsStep(steps) }
 }
 
 // https://cloud.google.com/workflows/docs/reference/syntax/parallel-steps
@@ -417,7 +420,10 @@ export function parallel(
       }
 ): NamedWorkflowStep {
   const steps = 'branches' in options ? options.branches : options.forLoop
-  return {name, step: new Parallel(steps, options.shared, options.concurrencyLimit)}
+  return {
+    name,
+    step: new Parallel(steps, options.shared, options.concurrencyLimit),
+  }
 }
 
 // https://cloud.google.com/workflows/docs/reference/syntax/completing
@@ -443,7 +449,7 @@ export function returnStep(
   name: GWStepName,
   value: GWValue
 ): NamedWorkflowStep {
-  return {name, step: new ReturnStep(value)}
+  return { name, step: new ReturnStep(value) }
 }
 
 function renderSteps(steps: NamedWorkflowStep[]) {

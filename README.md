@@ -78,6 +78,7 @@ Currently implemented validators:
 - `"duplicatedStepName"` checks that there are no duplicated step names in the workflow
 - `"duplicatedSubworkflowName"` checks that there are not duplicated subworkflow names
 - `"missingJumpTarget"` checks that call and next steps targets exist
+- `"wrongNumberOfCallArguments"` checks that a correct number of arguments is provided in subworkflow call
 
 It if possible to disable certain validator by listing the names of validators-to-be-disabled as the second argument to the `validate()` call. This might be handy, for example, if a validator is buggy and reject a valid workflow.
 

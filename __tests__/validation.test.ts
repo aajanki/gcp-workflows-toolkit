@@ -200,4 +200,46 @@ describe('Validator', () => {
 
     expect(() => validate(wf)).toThrow(WorkflowValidationError)
   })
+
+  it('detects if a required subworkflow argument is not provided', () => {
+    const subworkflow = new Subworkflow(
+      'subworkflow1',
+      [returnStep('return1', $('required_arg_1 + required_arg_2'))],
+      ['required_arg_1', 'required_arg_2']
+    )
+
+    const main = new MainWorkflow([
+      call('call1', {
+        call: subworkflow,
+        args: {
+          required_arg_1: 1,
+        },
+      }),
+    ])
+    const wf = new WorkflowApp(main, [subworkflow])
+
+    expect(() => validate(wf)).toThrow(WorkflowValidationError)
+  })
+
+  it('detects if a call step has too many arguments', () => {
+    const subworkflow = new Subworkflow(
+      'subworkflow1',
+      [returnStep('return1', $('required_arg_1 + required_arg_2'))],
+      ['required_arg_1', 'required_arg_2']
+    )
+
+    const main = new MainWorkflow([
+      call('step1', {
+        call: subworkflow,
+        args: {
+          required_arg_1: 1,
+          required_arg_2: 2,
+          extra_argument: 'X',
+        },
+      }),
+    ])
+    const wf = new WorkflowApp(main, [subworkflow])
+
+    expect(() => validate(wf)).toThrow(WorkflowValidationError)
+  })
 })

@@ -52,7 +52,7 @@ export class BaseWorkflow {
   renderBody(): object {
     return {
       params: this.params,
-      steps: this.steps.map(({name, step}) => {
+      steps: this.steps.map(({ name, step }) => {
         return { [name]: step.render() }
       }),
     }
