@@ -8,9 +8,9 @@ export {
 export {
   AssignStep,
   CallStep,
-  EndStep,
   RaiseStep,
   ReturnStep,
+  StepsStep,
   SwitchStep,
   SwitchCondition,
   TryExceptStep,
@@ -23,6 +23,7 @@ export {
   end,
   raise,
   returnStep,
+  stepsStep,
   switchStep,
   tryExcept,
 } from './steps'

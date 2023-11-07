@@ -1,5 +1,3 @@
-import * as _ from 'lodash'
-
 import type { GWValue, GWVariableName } from './variables'
 import { GWExpression, renderGWValue } from './variables'
 import { Subworkflow } from './workflows'
@@ -9,86 +7,52 @@ export type GWAssignment = readonly [GWVariableName, GWValue]
 export type GWArguments = Record<GWVariableName, GWValue>
 
 export interface WorkflowStep {
-  readonly name: GWStepName
-  readonly nestedSteps: WorkflowStep[]
-
   render(): object
+  nestedSteps(): NamedWorkflowStep[]
 }
+
+export type NamedWorkflowStep = {name: GWStepName, step: WorkflowStep}
+
+export const end = 'end'
 
 // https://cloud.google.com/workflows/docs/reference/syntax/variables#assign-step
 export class AssignStep implements WorkflowStep {
-  readonly name: GWStepName
-  readonly nestedSteps: WorkflowStep[] = []
   readonly assignments: Array<GWAssignment>
 
-  constructor(name: GWStepName, assignments: Array<GWAssignment>) {
-    this.name = name
+  constructor(assignments: Array<GWAssignment>) {
     this.assignments = assignments
   }
 
   render(): object {
     return {
-      [this.name]: {
-        assign: this.assignments.map(([key, val]) => {
-          return { [key]: renderGWValue(val) }
-        }),
-      },
+      assign: this.assignments.map(([key, val]) => {
+        return { [key]: renderGWValue(val) }
+      }),
     }
+  }
+
+  nestedSteps(): NamedWorkflowStep[] {
+    return []
   }
 }
 
-export function assign(name: GWStepName, assignments: Array<GWAssignment>) {
-  return new AssignStep(name, assignments)
+export function assign(
+  name: GWStepName,
+  assignments: Array<GWAssignment>
+): NamedWorkflowStep {
+  return { name, step: new AssignStep(assignments) }
 }
 
 // https://cloud.google.com/workflows/docs/reference/syntax/calls
 export class CallStep implements WorkflowStep {
-  readonly name: GWStepName
-  readonly nestedSteps: WorkflowStep[] = []
   readonly call: string
   readonly args?: GWArguments
   readonly result?: string
 
-  /**
-   * Construct a call step.
-   *
-   * @param name step name
-   * @param options.call a Subworkflow or standard library function name as string
-   * @param options.args argument values
-   * @param options.result name of the variable where the function output will be stored
-   */
-  constructor(
-    name: GWStepName,
-    options: { call: Subworkflow | string; args?: GWArguments; result?: string }
-  ) {
-    this.name = name
-    if (options.call instanceof Subworkflow) {
-      const neededArgs = options.call.params ?? []
-      const providedArgs = Object.keys(options.args ?? {})
-      const needBuNotProvided = _.difference(neededArgs, providedArgs)
-      const providedButNotNeeded = _.difference(providedArgs, neededArgs)
-
-      if (needBuNotProvided.length > 0) {
-        throw new Error(
-          `Required parameter not provided on call step "${name}": ${needBuNotProvided.join(
-            ', '
-          )}`
-        )
-      }
-      if (providedButNotNeeded.length > 0) {
-        throw new Error(
-          `Extra arguments provided for call step "${name}": ${providedButNotNeeded.join(
-            ', '
-          )}`
-        )
-      }
-
-      this.call = options.call.name
-    } else {
-      this.call = options.call
-    }
-    this.args = options.args
-    this.result = options.result
+  constructor(call: string | Subworkflow, args?: GWArguments, result?: string) {
+    this.call = call instanceof Subworkflow ? call.name : call
+    this.args = args
+    this.result = result
   }
 
   render(): object {
@@ -104,31 +68,33 @@ export class CallStep implements WorkflowStep {
     }
 
     return {
-      [this.name]: {
-        call: this.call,
-        args: renderedArgs,
-        result: this.result,
-      },
+      call: this.call,
+      args: renderedArgs,
+      result: this.result,
     }
+  }
+
+  nestedSteps(): NamedWorkflowStep[] {
+    return []
   }
 }
 
 export function call(
   name: GWStepName,
-  options: { call: Subworkflow | string; args?: GWArguments; result?: string }
-) {
-  return new CallStep(name, options)
+  options: { call: string | Subworkflow; args?: GWArguments; result?: string }
+): NamedWorkflowStep {
+  return { name, step: new CallStep(options.call, options.args, options.result) }
 }
 
 // A class representing the individual branches of a switch step
 export class SwitchCondition {
   readonly condition: GWExpression
-  readonly next?: WorkflowStep
-  readonly steps: WorkflowStep[]
+  readonly next?: GWStepName
+  readonly steps: NamedWorkflowStep[]
 
   constructor(
     condition: GWExpression,
-    options: { next: WorkflowStep } | { steps: WorkflowStep[] }
+    options: { next: GWStepName } | { steps: NamedWorkflowStep[] }
   ) {
     this.condition = condition
 
@@ -144,63 +110,46 @@ export class SwitchCondition {
   render(): object {
     return {
       condition: this.condition.render(),
-      next: this.next?.name,
-      steps:
-        this.steps.length > 0 ? this.steps.map((x) => x.render()) : undefined,
+      next: this.next,
+      steps: this.steps.length > 0 ? renderSteps(this.steps) : undefined,
     }
   }
 }
 
 export function condition(
   expression: GWExpression,
-  options: { next: WorkflowStep } | { steps: WorkflowStep[] }
+  options: { next: GWStepName } | { steps: NamedWorkflowStep[] }
 ) {
   return new SwitchCondition(expression, options)
 }
 
 // https://cloud.google.com/workflows/docs/reference/syntax/conditions
 export class SwitchStep implements WorkflowStep {
-  readonly name: GWStepName
-  readonly nestedSteps: WorkflowStep[]
   readonly conditions: SwitchCondition[]
   readonly next?: GWStepName
 
-  constructor(
-    name: GWStepName,
-    options: { conditions: SwitchCondition[]; next?: WorkflowStep }
-  ) {
-    this.name = name
-    this.conditions = options.conditions
-    this.next = options.next?.name
-
-    if (options.next) {
-      this.nestedSteps = []
-    } else {
-      this.nestedSteps = this.conditions.flatMap((cond) => {
-        if (cond.steps) {
-          return cond.steps
-        } else {
-          return []
-        }
-      })
-    }
+  constructor(conditions: SwitchCondition[], next?: GWStepName) {
+    this.conditions = conditions
+    this.next = next
   }
 
   render(): object {
     return {
-      [this.name]: {
-        switch: this.conditions.map((cond) => cond.render()),
-        next: this.next,
-      },
+      switch: this.conditions.map((cond) => cond.render()),
+      next: this.next,
     }
+  }
+
+  nestedSteps(): NamedWorkflowStep[] {
+    return this.conditions.flatMap((x) => x.steps)
   }
 }
 
 export function switchStep(
   name: GWStepName,
-  options: { conditions: SwitchCondition[]; next?: WorkflowStep }
-) {
-  return new SwitchStep(name, options)
+  options: { conditions: SwitchCondition[]; next?: GWStepName }
+): NamedWorkflowStep {
+  return { name, step: new SwitchStep(options.conditions, options.next) }
 }
 
 export type DefaultRetryPolicy =
@@ -218,31 +167,23 @@ export interface CustomRetryPolicy {
 
 // https://cloud.google.com/workflows/docs/reference/syntax/catching-errors
 export class TryExceptStep implements WorkflowStep {
-  readonly name: GWStepName
   readonly retryPolicy?: string | CustomRetryPolicy
   readonly errorMap?: GWStepName
   // Steps in the try block
-  readonly trySteps: WorkflowStep[]
+  readonly trySteps: NamedWorkflowStep[]
   // Steps in the except block
-  readonly exceptSteps: WorkflowStep[]
-  // All steps from both of the blocks
-  readonly nestedSteps: WorkflowStep[]
+  readonly exceptSteps: NamedWorkflowStep[]
 
   constructor(
-    name: GWStepName,
-    options: {
-      steps: WorkflowStep[]
-      retryPolicy?: DefaultRetryPolicy | CustomRetryPolicy
-      errorMap?: GWVariableName
-      exceptSteps: WorkflowStep[]
-    }
+    steps: NamedWorkflowStep[],
+    exceptSteps: NamedWorkflowStep[],
+    retryPolicy?: DefaultRetryPolicy | CustomRetryPolicy,
+    errorMap?: GWVariableName
   ) {
-    this.name = name
-    this.trySteps = options.steps
-    this.retryPolicy = options.retryPolicy
-    this.errorMap = options.errorMap
-    this.exceptSteps = options.exceptSteps
-    this.nestedSteps = (options.steps ?? []).concat(options.exceptSteps ?? [])
+    this.trySteps = steps
+    this.retryPolicy = retryPolicy
+    this.errorMap = errorMap
+    this.exceptSteps = exceptSteps
   }
 
   render(): object {
@@ -268,167 +209,170 @@ export class TryExceptStep implements WorkflowStep {
     }
 
     return {
-      [this.name]: {
-        try: {
-          steps: this.trySteps.map((x) => x.render()),
-        },
-        retry: retry,
-        except: {
-          as: this.errorMap,
-          steps: this.exceptSteps.map((x) => x.render()),
-        },
+      try: {
+        steps: renderSteps(this.trySteps),
+      },
+      retry: retry,
+      except: {
+        as: this.errorMap,
+        steps: renderSteps(this.exceptSteps),
       },
     }
+  }
+
+  nestedSteps(): NamedWorkflowStep[] {
+    return this.trySteps.concat(this.exceptSteps)
   }
 }
 
 export function tryExcept(
   name: GWStepName,
   options: {
-    steps: WorkflowStep[]
+    steps: NamedWorkflowStep[]
     retryPolicy?: DefaultRetryPolicy | CustomRetryPolicy
     errorMap?: GWVariableName
-    exceptSteps: WorkflowStep[]
+    exceptSteps: NamedWorkflowStep[]
   }
-) {
-  return new TryExceptStep(name, options)
+): NamedWorkflowStep {
+  return {
+    name,
+    step: new TryExceptStep(
+      options.steps,
+      options.exceptSteps,
+      options.retryPolicy,
+      options.errorMap
+    ),
+  }
 }
 
 // https://cloud.google.com/workflows/docs/reference/syntax/raising-errors
 export class RaiseStep implements WorkflowStep {
-  readonly name: GWStepName
-  readonly nestedSteps: WorkflowStep[] = []
   readonly value: GWValue
 
-  constructor(name: GWStepName, value: GWValue) {
-    this.name = name
+  constructor(value: GWValue) {
     this.value = value
   }
 
   render(): object {
     return {
-      [this.name]: {
-        raise: renderGWValue(this.value),
-      },
+      raise: renderGWValue(this.value),
     }
+  }
+
+  nestedSteps(): NamedWorkflowStep[] {
+    return []
   }
 }
 
-export function raise(name: GWStepName, value: GWValue) {
-  return new RaiseStep(name, value)
+export function raise(name: GWStepName, value: GWValue): NamedWorkflowStep {
+  return { name, step: new RaiseStep(value) }
 }
 
+// https://cloud.google.com/workflows/docs/reference/syntax/iteration
 export class ForStep implements WorkflowStep {
-  readonly name: GWStepName
-  readonly nestedSteps: WorkflowStep[]
+  readonly steps: NamedWorkflowStep[]
   readonly loopVariableName: GWVariableName
   readonly indexVariableName?: GWVariableName
   readonly listExpression: GWExpression | GWValue[]
 
   constructor(
-    name: GWStepName,
-    options: {
-      steps: WorkflowStep[]
-      loopVariable: GWVariableName
-      indexVariable?: GWVariableName
-      listExpression: GWExpression | GWValue[]
-    }
+    steps: NamedWorkflowStep[],
+    loopVariable: GWVariableName,
+    listExpression: GWExpression | GWValue[],
+    indexVariable?: GWVariableName
   ) {
-    this.name = name
-    this.nestedSteps = options.steps
-    this.loopVariableName = options.loopVariable
-    this.indexVariableName = options.indexVariable
-    this.listExpression = options.listExpression
+    this.steps = steps
+    this.loopVariableName = loopVariable
+    this.indexVariableName = indexVariable
+    this.listExpression = listExpression
   }
 
   render(): object {
     return {
-      [this.name]: {
-        for: {
-          value: this.loopVariableName,
-          index: this.indexVariableName,
-          in: renderGWValue(this.listExpression),
-          steps: this.nestedSteps.map((x) => x.render()),
-        },
+      for: {
+        value: this.loopVariableName,
+        index: this.indexVariableName,
+        in: renderGWValue(this.listExpression),
+        steps: renderSteps(this.steps),
       },
     }
+  }
+
+  nestedSteps(): NamedWorkflowStep[] {
+    return this.steps
   }
 }
 
 export function forStep(
   name: GWStepName,
   options: {
-    steps: WorkflowStep[]
+    steps: NamedWorkflowStep[]
     loopVariable: GWVariableName
     indexVariable?: GWVariableName
     listExpression: GWExpression | GWValue[]
   }
-) {
-  return new ForStep(name, options)
+): NamedWorkflowStep {
+  return {
+    name,
+    step: new ForStep(
+      options.steps,
+      options.loopVariable,
+      options.listExpression,
+      options.indexVariable
+    ),
+  }
 }
 
 // https://cloud.google.com/workflows/docs/reference/syntax/steps#embedded-steps
 export class StepsStep implements WorkflowStep {
-  readonly name: GWStepName
-  readonly nestedSteps: WorkflowStep[]
+  readonly steps: NamedWorkflowStep[]
 
   // Discriminates this from a generic WorkflowStep in type checking.
   // @ts-ignore
   private readonly _isStepsStep: boolean = true
 
-  constructor(name: GWStepName, steps: WorkflowStep[]) {
-    this.name = name
-    this.nestedSteps = steps
+  constructor(steps: NamedWorkflowStep[]) {
+    this.steps = steps
   }
 
   render(): object {
     return {
-      [this.name]: {
-        steps: this.nestedSteps.map((x) => x.render()),
-      },
+      steps: renderSteps(this.steps),
     }
+  }
+
+  nestedSteps(): NamedWorkflowStep[] {
+    return this.steps
   }
 }
 
-export function steps(name: GWStepName, steps: WorkflowStep[]) {
-  return new StepsStep(name, steps)
+export function stepsStep(
+  name: GWStepName,
+  steps: NamedWorkflowStep[]
+): NamedWorkflowStep {
+  return {name, step: new StepsStep(steps)}
 }
 
 // https://cloud.google.com/workflows/docs/reference/syntax/parallel-steps
 export class Parallel implements WorkflowStep {
-  readonly name: GWStepName
   // Steps for each branch
-  readonly branches?: StepsStep[]
+  readonly branches?: NamedWorkflowStep[]
   readonly forStep?: ForStep
-  // All steps merged from all branches/for
-  readonly nestedSteps: WorkflowStep[]
   readonly shared?: GWVariableName[]
   readonly concurrenceLimit?: number
 
   constructor(
-    name: GWStepName,
-    options:
-      | {
-          branches: StepsStep[]
-          shared?: GWVariableName[]
-          concurrencyLimit?: number
-        }
-      | {
-          forLoop: ForStep
-          shared?: GWVariableName[]
-          concurrencyLimit?: number
-        }
+    steps: NamedWorkflowStep[] | ForStep,
+    shared?: GWVariableName[],
+    concurrencyLimit?: number
   ) {
-    this.name = name
-    this.shared = options.shared
-    this.concurrenceLimit = options.concurrencyLimit
+    this.shared = shared
+    this.concurrenceLimit = concurrencyLimit
 
-    if ('branches' in options) {
-      this.branches = options.branches
-      this.nestedSteps = options.branches.flatMap((x) => x.nestedSteps)
+    if (steps instanceof ForStep) {
+      this.forStep = steps
     } else {
-      this.forStep = options.forLoop
-      this.nestedSteps = options.forLoop.nestedSteps
+      this.branches = steps
     }
   }
 
@@ -439,20 +383,22 @@ export class Parallel implements WorkflowStep {
         value: this.forStep.loopVariableName,
         index: this.forStep.indexVariableName,
         in: renderGWValue(this.forStep.listExpression),
-        steps: this.forStep.nestedSteps.map((x) => x.render()),
+        steps: renderSteps(this.forStep.steps),
       }
     }
 
     return {
-      [this.name]: {
-        parallel: {
-          shared: this.shared,
-          concurrency_limit: this.concurrenceLimit,
-          branches: this.branches?.map((x) => x.render()),
-          for: forBody,
-        },
+      parallel: {
+        shared: this.shared,
+        concurrency_limit: this.concurrenceLimit,
+        branches: this.branches ? renderSteps(this.branches) : undefined,
+        for: forBody,
       },
     }
+  }
+
+  nestedSteps(): NamedWorkflowStep[] {
+    return (this.branches ?? []).concat(this.forStep?.steps ?? [])
   }
 }
 
@@ -460,7 +406,7 @@ export function parallel(
   name: GWStepName,
   options:
     | {
-        branches: StepsStep[]
+        branches: NamedWorkflowStep[]
         shared?: GWVariableName[]
         concurrencyLimit?: number
       }
@@ -469,44 +415,39 @@ export function parallel(
         shared?: GWVariableName[]
         concurrencyLimit?: number
       }
-) {
-  return new Parallel(name, options)
-}
-
-// https://cloud.google.com/workflows/docs/reference/syntax/completing
-export class EndStep implements WorkflowStep {
-  readonly name: GWStepName = 'end'
-  readonly nestedSteps: WorkflowStep[] = []
-
-  render(): object {
-    return {}
-  }
-}
-
-export function end() {
-  return new EndStep()
+): NamedWorkflowStep {
+  const steps = 'branches' in options ? options.branches : options.forLoop
+  return {name, step: new Parallel(steps, options.shared, options.concurrencyLimit)}
 }
 
 // https://cloud.google.com/workflows/docs/reference/syntax/completing
 export class ReturnStep implements WorkflowStep {
-  readonly name: GWStepName
-  readonly nestedSteps: WorkflowStep[] = []
   readonly value: GWValue
 
-  constructor(name: GWStepName, value: GWValue) {
-    this.name = name
+  constructor(value: GWValue) {
     this.value = value
   }
 
   render(): object {
     return {
-      [this.name]: {
-        return: renderGWValue(this.value),
-      },
+      return: renderGWValue(this.value),
     }
+  }
+
+  nestedSteps(): NamedWorkflowStep[] {
+    return []
   }
 }
 
-export function returnStep(name: GWStepName, value: GWValue) {
-  return new ReturnStep(name, value)
+export function returnStep(
+  name: GWStepName,
+  value: GWValue
+): NamedWorkflowStep {
+  return {name, step: new ReturnStep(value)}
+}
+
+function renderSteps(steps: NamedWorkflowStep[]) {
+  return steps.map((x) => {
+    return { [x.name]: x.step.render() }
+  })
 }

@@ -50,11 +50,11 @@ function validateNoDuplicateStepNames(app: WorkflowApp): WorkflowIssue[] {
     const seen: Set<string> = new Set()
     const duplicates: Set<string> = new Set()
 
-    for (const step of wf.iterateStepsDepthFirst()) {
-      if (seen.has(step.name)) {
-        duplicates.add(step.name)
+    for (const {name} of wf.iterateStepsDepthFirst()) {
+      if (seen.has(name)) {
+        duplicates.add(name)
       } else {
-        seen.add(step.name)
+        seen.add(name)
       }
     }
 
@@ -162,8 +162,8 @@ function validateJumpTargetsInWorkflow(
 ): WorkflowIssue[] {
   const issues: WorkflowIssue[] = []
   const stepNames: string[] = []
-  for (const step of workflow.iterateStepsDepthFirst()) {
-    stepNames.push(step.name)
+  for (const {name} of workflow.iterateStepsDepthFirst()) {
+    stepNames.push(name)
   }
 
   function validCallTarget(name: string) {
@@ -178,26 +178,26 @@ function validateJumpTargetsInWorkflow(
     return stepNames.includes(name) || name === 'end' // accepts "next: end"
   }
 
-  for (const step of workflow.iterateStepsDepthFirst()) {
+  for (const {name, step} of workflow.iterateStepsDepthFirst()) {
     if (step instanceof CallStep) {
       if (!validCallTarget(step.call))
         issues.push({
           type: 'missingJumpTarget',
-          message: `Call target "${step.call}" in step "${step.name}" not found`,
+          message: `Call target "${step.call}" in step "${name}" not found`,
         })
     } else if (step instanceof SwitchStep) {
       if (step.next && !validNextTarget(step.next)) {
         issues.push({
           type: 'missingJumpTarget',
-          message: `Next target "${step.next}" in step "${step.name}" not found`,
+          message: `Next target "${step.next}" in step "${name}" not found`,
         })
       }
 
       step.conditions.forEach((cond) => {
-        if (cond.next && !validNextTarget(cond.next.name)) {
+        if (cond.next && !validNextTarget(cond.next)) {
           issues.push({
             type: 'missingJumpTarget',
-            message: `Next target "${cond.next.name}" in step "${step.name}" not found`,
+            message: `Next target "${cond.next}" in step "${name}" not found`,
           })
         }
       })

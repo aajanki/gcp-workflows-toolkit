@@ -1,6 +1,6 @@
 import * as YAML from 'yaml'
 
-import { WorkflowStep } from './steps'
+import { NamedWorkflowStep } from './steps'
 import { GWVariableName } from './variables'
 
 /**
@@ -30,10 +30,14 @@ export class WorkflowApp {
 
 export class BaseWorkflow {
   readonly name: string
-  readonly steps: WorkflowStep[]
+  readonly steps: NamedWorkflowStep[]
   readonly params?: GWVariableName[]
 
-  constructor(name: string, steps: WorkflowStep[], params?: GWVariableName[]) {
+  constructor(
+    name: string,
+    steps: NamedWorkflowStep[],
+    params?: GWVariableName[]
+  ) {
     this.name = name
     this.steps = steps
     this.params = params
@@ -48,20 +52,24 @@ export class BaseWorkflow {
   renderBody(): object {
     return {
       params: this.params,
-      steps: this.steps.map((x) => x.render()),
+      steps: this.steps.map(({name, step}) => {
+        return { [name]: step.render() }
+      }),
     }
   }
 
-  *iterateStepsDepthFirst(): IterableIterator<WorkflowStep> {
+  *iterateStepsDepthFirst(): IterableIterator<NamedWorkflowStep> {
     const visited = new Set()
 
     function* visitPreOrder(
-      step: WorkflowStep
-    ): IterableIterator<WorkflowStep> {
+      step: NamedWorkflowStep
+    ): IterableIterator<NamedWorkflowStep> {
       if (!visited.has(step)) {
         visited.add(step)
+
         yield step
-        for (const x of step.nestedSteps) {
+
+        for (const x of step.step.nestedSteps()) {
           yield* visitPreOrder(x)
         }
       }
@@ -76,14 +84,18 @@ export class BaseWorkflow {
 // https://cloud.google.com/workflows/docs/reference/syntax/subworkflows
 export class Subworkflow extends BaseWorkflow {
   // TODO: support optional parameters and default value
-  constructor(name: string, steps: WorkflowStep[], params?: GWVariableName[]) {
+  constructor(
+    name: string,
+    steps: NamedWorkflowStep[],
+    params?: GWVariableName[]
+  ) {
     super(name, steps, params)
   }
 }
 
 // https://cloud.google.com/workflows/docs/reference/syntax/subworkflows#main-block
 export class MainWorkflow extends BaseWorkflow {
-  constructor(steps: WorkflowStep[], argumentName?: GWVariableName) {
+  constructor(steps: NamedWorkflowStep[], argumentName?: GWVariableName) {
     const paramsArray = argumentName ? [argumentName] : undefined
     super('main', steps, paramsArray)
   }

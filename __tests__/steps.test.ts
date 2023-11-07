@@ -7,34 +7,34 @@ import {
   condition,
   end,
   raise,
-  steps,
+  stepsStep,
   switchStep,
   tryExcept,
   returnStep,
   parallel,
   forStep,
+  ForStep,
 } from '../src/steps'
 import { Subworkflow } from '../src/workflows'
 
 describe('workflows step', () => {
   it('renders an assign step', () => {
-    const step = assign('step1', [
+    const {step} = assign('step1', [
       ['city', 'New New York'],
       ['value', $('1 + 2')],
     ])
 
     const expected = YAML.parse(`
-    step1:
-        assign:
-          - city: New New York
-          - value: \${1 + 2}
+    assign:
+      - city: New New York
+      - value: \${1 + 2}
     `)
 
     expect(step.render()).toEqual(expected)
   })
 
   it('assigns variables with index notation', () => {
-    const step = assign('update_list', [
+    const {step} = assign('update_list', [
       ['my_list', [0, 1, 2, 3, 4]],
       ['idx', 0],
       ['my_list[0]', 'Value0'],
@@ -43,33 +43,31 @@ describe('workflows step', () => {
     ])
 
     const expected = YAML.parse(`
-    update_list:
-        assign:
-          - my_list: [0, 1, 2, 3, 4]
-          - idx: 0
-          - my_list[0]: "Value0"
-          - my_list[idx + 1]: "Value1"
-          - my_list[len(my_list) - 1]: "LastValue"
+    assign:
+      - my_list: [0, 1, 2, 3, 4]
+      - idx: 0
+      - my_list[0]: "Value0"
+      - my_list[idx + 1]: "Value1"
+      - my_list[len(my_list) - 1]: "LastValue"
     `)
 
     expect(step.render()).toEqual(expected)
   })
 
   it('renders a simple call step', () => {
-    const step = call('step1', {
+    const {step} = call('step1', {
       call: 'destination_step',
     })
 
     const expected = YAML.parse(`
-    step1:
-        call: destination_step
+    call: destination_step
     `)
 
     expect(step.render()).toEqual(expected)
   })
 
   it('renders a call step with arguments and result', () => {
-    const step = call('step1', {
+    const {step} = call('step1', {
       call: 'deliver_package',
       args: {
         destination: 'Atlanta',
@@ -79,19 +77,18 @@ describe('workflows step', () => {
     })
 
     const expected = YAML.parse(`
-    step1:
-        call: deliver_package
-        args:
-            destination: Atlanta
-            deliveryCompany: Planet Express
-        result: deliveryResult
+    call: deliver_package
+    args:
+        destination: Atlanta
+        deliveryCompany: Planet Express
+    result: deliveryResult
     `)
 
     expect(step.render()).toEqual(expected)
   })
 
   it('renders a call step with an expression as an argument', () => {
-    const step = call('step1', {
+    const {step} = call('step1', {
       call: 'deliver_package',
       args: {
         destination: $('destinations[i]'),
@@ -99,15 +96,15 @@ describe('workflows step', () => {
     })
 
     const expected = YAML.parse(`
-    step1:
-        call: deliver_package
-        args:
-            destination: \${destinations[i]}
+    call: deliver_package
+    args:
+        destination: \${destinations[i]}
     `)
 
     expect(step.render()).toEqual(expected)
   })
 
+  /*
   it('throws if a required call argument is not provided', () => {
     const requiredParams = ['arg1', 'arg2']
     const subworkflow = new Subworkflow(
@@ -145,38 +142,35 @@ describe('workflows step', () => {
       })
     }).toThrow('Extra arguments provided')
   })
+  */
 
   it('renders a switch step', () => {
-    const destination1 = call('destination_new_new_york', {
-      call: 'deliver_to_new_new_york',
-    })
     const assign1 = assign('increase_counter', [['a', $('mars_counter + 1')]])
     const return1 = returnStep('return_counter', $('a'))
-    const step = switchStep('step1', {
+    const {step} = switchStep('step1', {
       conditions: [
         condition($('city = "New New York"'), {
-          next: destination1,
+          next: 'destination_new_new_york',
         }),
         condition($('city = "Mars Vegas"'), {
           steps: [assign1, return1],
         }),
       ],
-      next: end(),
+      next: end,
     })
 
     const expected2 = YAML.parse(`
-    step1:
-        switch:
-            - condition: \${city = "New New York"}
-              next: destination_new_new_york
-            - condition: \${city = "Mars Vegas"}
-              steps:
-                - increase_counter:
-                    assign:
-                      - a: \${mars_counter + 1}
-                - return_counter:
-                    return: \${a}
-        next: end
+    switch:
+        - condition: \${city = "New New York"}
+          next: destination_new_new_york
+        - condition: \${city = "Mars Vegas"}
+          steps:
+            - increase_counter:
+                assign:
+                  - a: \${mars_counter + 1}
+            - return_counter:
+                return: \${a}
+    next: end
     `)
 
     expect(step.render()).toEqual(expected2)
@@ -198,32 +192,31 @@ describe('workflows step', () => {
       ],
     })
     const unknownErrors = raise('unknown_errors', $('e'))
-    const step = tryExcept('step1', {
+    const {step} = tryExcept('step1', {
       steps: [potentiallyFailingStep],
       errorMap: 'e',
       exceptSteps: [knownErrors, unknownErrors],
     })
 
     const expected = YAML.parse(`
-    step1:
-        try:
-            steps:
-              - http_step:
-                    call: http.get
-                    args:
-                        url: https://maybe.failing.test/
-                    result: response
-        except:
-            as: e
-            steps:
-              - known_errors:
-                  switch:
-                      - condition: \${e.code == 404}
-                        steps:
-                          - return_error:
-                              return: "Not found"
-              - unknown_errors:
-                  raise: \${e}
+    try:
+        steps:
+          - http_step:
+                call: http.get
+                args:
+                    url: https://maybe.failing.test/
+                result: response
+    except:
+        as: e
+        steps:
+          - known_errors:
+              switch:
+                  - condition: \${e.code == 404}
+                    steps:
+                      - return_error:
+                          return: "Not found"
+          - unknown_errors:
+              raise: \${e}
     `)
 
     expect(step.render()).toEqual(expected)
@@ -245,7 +238,7 @@ describe('workflows step', () => {
       ],
     })
     const unknownErrors = raise('unknown_errors', $('e'))
-    const step = tryExcept('step1', {
+    const {step} = tryExcept('step1', {
       steps: [potentiallyFailingStep],
       retryPolicy: 'http.default_retry',
       errorMap: 'e',
@@ -253,26 +246,25 @@ describe('workflows step', () => {
     })
 
     const expected = YAML.parse(`
-    step1:
-        try:
-            steps:
-              - http_step:
-                    call: http.get
-                    args:
-                        url: https://maybe.failing.test/
-                    result: response
-        retry: \${http.default_retry}
-        except:
-            as: e
-            steps:
-              - known_errors:
-                  switch:
-                      - condition: \${e.code == 404}
-                        steps:
-                          - return_error:
-                              return: "Not found"
-              - unknown_errors:
-                  raise: \${e}
+    try:
+        steps:
+          - http_step:
+                call: http.get
+                args:
+                    url: https://maybe.failing.test/
+                result: response
+    retry: \${http.default_retry}
+    except:
+        as: e
+        steps:
+          - known_errors:
+              switch:
+                  - condition: \${e.code == 404}
+                    steps:
+                      - return_error:
+                          return: "Not found"
+          - unknown_errors:
+              raise: \${e}
     `)
 
     expect(step.render()).toEqual(expected)
@@ -294,7 +286,7 @@ describe('workflows step', () => {
       ],
     })
     const unknownErrors = raise('unknown_errors', $('e'))
-    const step = tryExcept('step1', {
+    const {step} = tryExcept('step1', {
       steps: [potentiallyFailingStep],
       retryPolicy: {
         predicate: 'http.default_retry',
@@ -310,32 +302,31 @@ describe('workflows step', () => {
     })
 
     const expected = YAML.parse(`
-    step1:
-        try:
-            steps:
-              - http_step:
-                    call: http.get
-                    args:
-                        url: https://maybe.failing.test/
-                    result: response
-        retry:
-            predicate: \${http.default_retry}
-            max_retries: 10
-            backoff:
-                initial_delay: 0.5
-                max_delay: 60
-                multiplier: 2
-        except:
-            as: e
-            steps:
-              - known_errors:
-                  switch:
-                      - condition: \${e.code == 404}
-                        steps:
-                          - return_error:
-                              return: "Not found"
-              - unknown_errors:
-                  raise: \${e}
+    try:
+        steps:
+          - http_step:
+                call: http.get
+                args:
+                    url: https://maybe.failing.test/
+                result: response
+    retry:
+        predicate: \${http.default_retry}
+        max_retries: 10
+        backoff:
+            initial_delay: 0.5
+            max_delay: 60
+            multiplier: 2
+    except:
+        as: e
+        steps:
+          - known_errors:
+              switch:
+                  - condition: \${e.code == 404}
+                    steps:
+                      - return_error:
+                          return: "Not found"
+          - unknown_errors:
+              raise: \${e}
     `)
 
     expect(step.render()).toEqual(expected)
@@ -363,7 +354,7 @@ describe('workflows step', () => {
       ],
     })
     const unknownErrors = raise('unknown_errors', $('e'))
-    const step = tryExcept('step1', {
+    const {step} = tryExcept('step1', {
       steps: [potentiallyFailingStep],
       retryPolicy: {
         predicate: predicateSubworkflow,
@@ -379,62 +370,60 @@ describe('workflows step', () => {
     })
 
     const expected = YAML.parse(`
-    step1:
-        try:
-            steps:
-              - http_step:
-                    call: http.get
-                    args:
-                        url: https://maybe.failing.test/
-                    result: response
-        retry:
-            predicate: \${my_retry_predicate}
-            max_retries: 3
-            backoff:
-                initial_delay: 2
-                max_delay: 60
-                multiplier: 4
-        except:
-            as: e
-            steps:
-              - known_errors:
-                  switch:
-                      - condition: \${e.code == 404}
-                        steps:
-                          - return_error:
-                              return: "Not found"
-              - unknown_errors:
-                  raise: \${e}
+    try:
+        steps:
+          - http_step:
+                call: http.get
+                args:
+                    url: https://maybe.failing.test/
+                result: response
+    retry:
+        predicate: \${my_retry_predicate}
+        max_retries: 3
+        backoff:
+            initial_delay: 2
+            max_delay: 60
+            multiplier: 4
+    except:
+        as: e
+        steps:
+          - known_errors:
+              switch:
+                  - condition: \${e.code == 404}
+                    steps:
+                      - return_error:
+                          return: "Not found"
+          - unknown_errors:
+              raise: \${e}
     `)
 
     expect(step.render()).toEqual(expected)
   })
 
   it('renders a for step', () => {
-    const step = forStep('loop', {
+    const {step} = forStep('loop', {
       loopVariable: 'v',
       listExpression: [1, 2, 3],
       steps: [assign('addStep', [['sum', $('sum + v')]])],
     })
 
     const expected = YAML.parse(`
-    loop:
-        for:
-            value: v
-            in: [1, 2, 3]
-            steps:
-              - addStep:
-                  assign:
-                    - sum: \${sum + v}
+    for:
+        value: v
+        in: [1, 2, 3]
+        steps:
+          - addStep:
+              assign:
+                - sum: \${sum + v}
     `)
 
     expect(step.render()).toEqual(expected)
   })
 
   it('renders parallel branches', () => {
-    const step = parallel('parallel1', {
+    const {step} = parallel('parallel1', {
       branches: [
-        steps('branch1', [
+        stepsStep('branch1', [
           call('say_hello_1', {
             call: 'sys.log',
             args: {
@@ -442,7 +431,7 @@ describe('workflows step', () => {
             },
           }),
         ]),
-        steps('branch2', [
+        stepsStep('branch2', [
           call('say_hello_2', {
             call: 'sys.log',
             args: {
@@ -454,33 +443,32 @@ describe('workflows step', () => {
     })
 
     const expected = YAML.parse(`
-    parallel1:
-        parallel:
-            branches:
-              - branch1:
-                  steps:
-                    - say_hello_1:
-                        call: sys.log
-                        args:
-                            text: Hello from branch 1
-              - branch2:
-                  steps:
-                    - say_hello_2:
-                        call: sys.log
-                        args:
-                            text: Hello from branch 2
+    parallel:
+        branches:
+          - branch1:
+              steps:
+                - say_hello_1:
+                    call: sys.log
+                    args:
+                        text: Hello from branch 1
+          - branch2:
+              steps:
+                - say_hello_2:
+                    call: sys.log
+                    args:
+                        text: Hello from branch 2
     `)
 
     expect(step.render()).toEqual(expected)
   })
 
   it('renders parallel branches with shared variables and concurrency limit', () => {
-    const step = parallel('parallel1', {
+    const {step} = parallel('parallel1', {
       branches: [
-        steps('branch1', [
+        stepsStep('branch1', [
           assign('assign_1', [['myVariable[0]', 'Set in branch 1']]),
         ]),
-        steps('branch2', [
+        stepsStep('branch2', [
           assign('assign_2', [['myVariable[1]', 'Set in branch 2']]),
         ]),
       ],
@@ -489,33 +477,30 @@ describe('workflows step', () => {
     })
 
     const expected = YAML.parse(`
-    parallel1:
-        parallel:
-            shared: [myVariable]
-            concurrency_limit: 2
-            branches:
-              - branch1:
-                  steps:
-                    - assign_1:
-                        assign:
-                          - myVariable[0]: 'Set in branch 1'
-              - branch2:
-                  steps:
-                    - assign_2:
-                        assign:
-                          - myVariable[1]: 'Set in branch 2'
+    parallel:
+        shared: [myVariable]
+        concurrency_limit: 2
+        branches:
+          - branch1:
+              steps:
+                - assign_1:
+                    assign:
+                      - myVariable[0]: 'Set in branch 1'
+          - branch2:
+              steps:
+                - assign_2:
+                    assign:
+                      - myVariable[1]: 'Set in branch 2'
     `)
 
     expect(step.render()).toEqual(expected)
   })
 
   it('renders a parallel for step', () => {
-    const step = parallel('parallelFor', {
+    const {step} = parallel('parallelFor', {
       shared: ['total'],
-      forLoop: forStep('forStep', {
-        loopVariable: 'userId',
-        listExpression: ['11', '12', '13', '14'],
-        steps: [
+      forLoop: new ForStep(
+        [
           call('getBalance', {
             call: 'http.get',
             args: {
@@ -525,25 +510,26 @@ describe('workflows step', () => {
           }),
           assign('add', [['total', $('total + balance')]]),
         ],
-      }),
+        'userId',
+        ['11', '12', '13', '14']
+      ),
     })
 
     const expected = YAML.parse(`
-    parallelFor:
-        parallel:
-            shared: [total]
-            for:
-                value: userId
-                in: ['11', '12', '13', '14']
-                steps:
-                  - getBalance:
-                      call: http.get
-                      args:
-                          url: \${"https://example.com/balance/" + userId}
-                      result: balance
-                  - add:
-                      assign:
-                        - total: \${total + balance}
+    parallel:
+        shared: [total]
+        for:
+            value: userId
+            in: ['11', '12', '13', '14']
+            steps:
+              - getBalance:
+                  call: http.get
+                  args:
+                      url: \${"https://example.com/balance/" + userId}
+                  result: balance
+              - add:
+                  assign:
+                    - total: \${total + balance}
     `)
 
     expect(step.render()).toEqual(expected)

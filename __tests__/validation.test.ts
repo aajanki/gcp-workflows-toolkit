@@ -1,5 +1,12 @@
 import { MainWorkflow, Subworkflow, WorkflowApp } from '../src/workflows'
-import { assign, call, condition, returnStep, switchStep } from '../src/steps'
+import {
+  assign,
+  call,
+  condition,
+  returnStep,
+  stepsStep,
+  switchStep,
+} from '../src/steps'
 import { WorkflowValidationError, validate } from '../src/validation'
 import { $ } from '../src/variables'
 
@@ -77,43 +84,45 @@ describe('Validator', () => {
     expect(() => validate(wf)).toThrow(WorkflowValidationError)
   })
 
-  it('detects duplicate step names nested steps', () => {
+  it('detects duplicate step names in nested steps', () => {
     const steps = [
-      assign('duplicated_name', [['name', 'Fry']]),
-      switchStep('switch_step', {
-        conditions: [
-          condition($('name == "Fry"'), {
-            steps: [
-              assign('fry_quote', [
-                ['quote', 'Space. It seems to go on forever.'],
-              ]),
-            ],
-          }),
-          condition($('name == "Zoidberg"'), {
-            steps: [
-              assign('duplicated_name', [
-                ['quote', "Casual hello. It's me, Zoidberg. Act naturally."],
-              ]),
-            ],
-          }),
-          condition($('name == "Leela"'), {
-            steps: [
-              assign('leela_quote', [
-                [
-                  'quote',
-                  "Look, I don't know about your previous captains, but I intend to do as little dying as possible.",
-                ],
-              ]),
-            ],
-          }),
-        ],
-      }),
-      call('step2', {
-        call: 'sys.log',
-        args: {
-          text: $('name + ": " + quote'),
-        },
-      }),
+      stepsStep('print_quotes', [
+        assign('duplicated_name', [['name', 'Fry']]),
+        switchStep('switch_step', {
+          conditions: [
+            condition($('name == "Fry"'), {
+              steps: [
+                assign('fry_quote', [
+                  ['quote', 'Space. It seems to go on forever.'],
+                ]),
+              ],
+            }),
+            condition($('name == "Zoidberg"'), {
+              steps: [
+                assign('duplicated_name', [
+                  ['quote', "Casual hello. It's me, Zoidberg. Act naturally."],
+                ]),
+              ],
+            }),
+            condition($('name == "Leela"'), {
+              steps: [
+                assign('leela_quote', [
+                  [
+                    'quote',
+                    "Look, I don't know about your previous captains, but I intend to do as little dying as possible.",
+                  ],
+                ]),
+              ],
+            }),
+          ],
+        }),
+        call('step2', {
+          call: 'sys.log',
+          args: {
+            text: $('name + ": " + quote'),
+          },
+        }),
+      ]),
     ]
     const wf = new WorkflowApp(new MainWorkflow(steps))
 
@@ -162,12 +171,6 @@ describe('Validator', () => {
   it('detects a missing next target', () => {
     const sub1 = new Subworkflow('subworkflow1', [returnStep('return1', '1')])
     const sub2 = new Subworkflow('subworkflow2', [returnStep('return2', '2')])
-    const step2 = call('step2', {
-      call: 'sys.log',
-      args: {
-        text: 'Logging from step 2',
-      },
-    })
     const step3 = call('step3', {
       call: 'sys.log',
       args: {
@@ -177,10 +180,10 @@ describe('Validator', () => {
     const switch1 = switchStep('step1', {
       conditions: [
         condition($('input == 1'), {
-          next: step3,
+          next: 'step3',
         }),
       ],
-      next: step2,
+      next: 'missing_step',
     })
     const main = new MainWorkflow([switch1, step3], 'input')
     const wf = new WorkflowApp(main, [sub1, sub2])
