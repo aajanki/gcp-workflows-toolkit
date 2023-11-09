@@ -4,7 +4,7 @@ A Typescript library for writing [Google Cloud Workflows](https://cloud.google.c
 
 Status: beta, not all workflow features are supported.
 
-By writing a workflow definition in Typescript, we can employ the Typescript type checking to catch many potential errors already during development stage.
+By writing a workflow definition in Typescript, we can employ the Typescript type checking to catch many potential errors already during the development stage.
 
 ### Sample
 
@@ -74,13 +74,13 @@ validate(workflow)
 
 Currently implemented validators:
 
-- `"invalidWorkflowName"` checks that the workflow names are valid
 - `"duplicatedStepName"` checks that there are no duplicated step names in the workflow
 - `"duplicatedSubworkflowName"` checks that there are not duplicated subworkflow names
+- `"invalidWorkflowName"` checks that the workflow names are valid
 - `"missingJumpTarget"` checks that call and next steps targets exist
-- `"wrongNumberOfCallArguments"` checks that a correct number of arguments is provided in subworkflow call
+- `"wrongNumberOfCallArguments"` checks that a correct number of arguments is provided in subworkflow calls
 
-It if possible to disable certain validator by listing the names of validators-to-be-disabled as the second argument to the `validate()` call. This might be handy, for example, if a validator is buggy and reject a valid workflow.
+It is possible to disable some validators by listing the names of validators-to-be-disabled as the second argument to the `validate()` call. This might be handy, for example, if a validator is buggy and rejects a valid workflow.
 
 ```typescript
 const workflow = new WorkflowApp(...)
