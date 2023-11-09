@@ -1,4 +1,3 @@
-import * as _ from 'lodash'
 import { CallStep, SwitchStep } from './steps'
 import { BaseWorkflow, WorkflowApp } from './workflows'
 
@@ -256,11 +255,13 @@ function findIssuesInCallArguments(
         argumentBySubworkflowName.get(step.call)?.required ?? []
       const optionalArgs =
         argumentBySubworkflowName.get(step.call)?.optional ?? []
+      const requiredAndOptionalArgs = requiredArgs.concat(optionalArgs)
       const providedArgs = Object.keys(step.args ?? {})
-      const requiredButNotProvided = _.difference(requiredArgs, providedArgs)
-      const providedButNotRequired = _.difference(
-        providedArgs,
-        requiredArgs.concat(optionalArgs)
+      const requiredButNotProvided = requiredArgs.filter(
+        (x) => !providedArgs.includes(x)
+      )
+      const providedButNotRequired = providedArgs.filter(
+        (x) => !requiredAndOptionalArgs.includes(x)
       )
 
       if (requiredButNotProvided.length > 0) {
