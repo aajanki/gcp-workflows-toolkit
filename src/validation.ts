@@ -215,15 +215,27 @@ function validateJumpTargetsInWorkflow(
 function validateSubworkflowArguments(app: WorkflowApp): WorkflowIssue[] {
   const issues: WorkflowIssue[] = []
 
-  const paramsBySubworkflowName = new Map(
-    app.subworkflows.map((x) => [x.name, x.params ?? []])
+  const paramsBySubworkflow = new Map(
+    app.subworkflows.map((x) => [
+      x.name,
+      {
+        required:
+          x.params
+            ?.filter((x) => typeof x.default === 'undefined')
+            .map((x) => x.name) ?? [],
+        optional:
+          x.params
+            ?.filter((x) => typeof x.default !== 'undefined')
+            .map((x) => x.name) ?? [],
+      },
+    ])
   )
 
   issues.push(
-    ...findIssuesInCallArguments(app.mainWorkflow, paramsBySubworkflowName)
+    ...findIssuesInCallArguments(app.mainWorkflow, paramsBySubworkflow)
   )
   app.subworkflows.forEach((subw) => {
-    issues.push(...findIssuesInCallArguments(subw, paramsBySubworkflowName))
+    issues.push(...findIssuesInCallArguments(subw, paramsBySubworkflow))
   })
 
   return issues
@@ -231,35 +243,42 @@ function validateSubworkflowArguments(app: WorkflowApp): WorkflowIssue[] {
 
 function findIssuesInCallArguments(
   wf: BaseWorkflow,
-  argumentBySubworkflowName: Map<string, string[]>
+  argumentBySubworkflowName: Map<
+    string,
+    { required: string[]; optional: string[] }
+  >
 ): WorkflowIssue[] {
   const issues: WorkflowIssue[] = []
 
   for (const { name, step } of wf.iterateStepsDepthFirst()) {
-    if (step instanceof CallStep) {
-      const requiredArgs = argumentBySubworkflowName.get(step.call)
-      if (requiredArgs) {
-        const providedArgs = Object.keys(step.args ?? {})
-        const requiredButNotProvided = _.difference(requiredArgs, providedArgs)
-        const providedButNotRequired = _.difference(providedArgs, requiredArgs)
+    if (step instanceof CallStep && argumentBySubworkflowName.has(step.call)) {
+      const requiredArgs =
+        argumentBySubworkflowName.get(step.call)?.required ?? []
+      const optionalArgs =
+        argumentBySubworkflowName.get(step.call)?.optional ?? []
+      const providedArgs = Object.keys(step.args ?? {})
+      const requiredButNotProvided = _.difference(requiredArgs, providedArgs)
+      const providedButNotRequired = _.difference(
+        providedArgs,
+        requiredArgs.concat(optionalArgs)
+      )
 
-        if (requiredButNotProvided.length > 0) {
-          issues.push({
-            type: 'wrongNumberOfCallArguments',
-            message: `Required parameters not provided on call step "${name}": ${JSON.stringify(
-              requiredButNotProvided
-            )}`,
-          })
-        }
+      if (requiredButNotProvided.length > 0) {
+        issues.push({
+          type: 'wrongNumberOfCallArguments',
+          message: `Required parameters not provided on call step "${name}": ${JSON.stringify(
+            requiredButNotProvided
+          )}`,
+        })
+      }
 
-        if (providedButNotRequired.length > 0) {
-          issues.push({
-            type: 'wrongNumberOfCallArguments',
-            message: `Extra arguments provided on call step "${name}": ${JSON.stringify(
-              providedButNotRequired
-            )}`,
-          })
-        }
+      if (providedButNotRequired.length > 0) {
+        issues.push({
+          type: 'wrongNumberOfCallArguments',
+          message: `Extra arguments provided on call step "${name}": ${JSON.stringify(
+            providedButNotRequired
+          )}`,
+        })
       }
     }
   }

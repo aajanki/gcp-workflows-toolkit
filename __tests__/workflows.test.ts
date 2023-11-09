@@ -43,20 +43,23 @@ describe('workflow', () => {
       call('log_greetings', {
         call: 'sys.log',
         args: {
-          text: $('"Hello, " + name'),
+          text: $('greeting + ", " + name'),
         },
       }),
     ]
-    const wf = new Subworkflow('say_hello', steps, ['name'])
+    const wf = new Subworkflow('say_hello', steps, [
+      { name: 'name' },
+      { name: 'greeting', default: 'Hello' },
+    ])
 
     const expected = YAML.parse(`
     say_hello:
-        params: [name]
+        params: [name, greeting: 'Hello']
         steps:
           - log_greetings:
               call: sys.log
               args:
-                  text: \${"Hello, " + name}
+                  text: \${greeting + ", " + name}
     `)
 
     expect(wf.render()).toEqual(expected)
@@ -73,7 +76,7 @@ describe('workflow', () => {
           },
         }),
       ],
-      ['name']
+      [{ name: 'name' }]
     )
     const mainWorkflow = new MainWorkflow([
       call('call_subworkflow', {

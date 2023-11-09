@@ -69,7 +69,7 @@ describe('Validator', () => {
         }),
         returnStep('duplicated_name', '1'),
       ],
-      ['name']
+      [{ name: 'name' }]
     )
     const mainWorkflow = new MainWorkflow([
       call('call_subworkflow', {
@@ -141,7 +141,7 @@ describe('Validator', () => {
         }),
         returnStep('step2', '1'),
       ],
-      ['name']
+      [{ name: 'name' }]
     )
     const mainWorkflow = new MainWorkflow([
       call('step1', {
@@ -205,7 +205,7 @@ describe('Validator', () => {
     const subworkflow = new Subworkflow(
       'subworkflow1',
       [returnStep('return1', $('required_arg_1 + required_arg_2'))],
-      ['required_arg_1', 'required_arg_2']
+      [{ name: 'required_arg_1' }, { name: 'required_arg_2' }]
     )
 
     const main = new MainWorkflow([
@@ -221,11 +221,31 @@ describe('Validator', () => {
     expect(() => validate(wf)).toThrow(WorkflowValidationError)
   })
 
+  it('optional subworkflow parameters may be missing', () => {
+    const subworkflow = new Subworkflow(
+      'subworkflow1',
+      [returnStep('return1', $('required_arg_1 + optional_arg_2'))],
+      [{ name: 'required_arg_1' }, { name: 'optional_arg_2', default: 2 }]
+    )
+
+    const main = new MainWorkflow([
+      call('call1', {
+        call: subworkflow,
+        args: {
+          required_arg_1: 1,
+        },
+      }),
+    ])
+    const wf = new WorkflowApp(main, [subworkflow])
+
+    expect(() => validate(wf)).not.toThrow(WorkflowValidationError)
+  })
+
   it('detects if a call step has too many arguments', () => {
     const subworkflow = new Subworkflow(
       'subworkflow1',
       [returnStep('return1', $('required_arg_1 + required_arg_2'))],
-      ['required_arg_1', 'required_arg_2']
+      [{ name: 'required_arg_1' }, { name: 'required_arg_2' }]
     )
 
     const main = new MainWorkflow([
@@ -241,5 +261,26 @@ describe('Validator', () => {
     const wf = new WorkflowApp(main, [subworkflow])
 
     expect(() => validate(wf)).toThrow(WorkflowValidationError)
+  })
+
+  it('accepts a value for optional subworkflow parameters', () => {
+    const subworkflow = new Subworkflow(
+      'subworkflow1',
+      [returnStep('return1', $('required_arg_1 + optional_arg_2'))],
+      [{ name: 'required_arg_1' }, { name: 'optional_arg_2', default: 2 }]
+    )
+
+    const main = new MainWorkflow([
+      call('step1', {
+        call: subworkflow,
+        args: {
+          required_arg_1: 1,
+          optional_arg_2: 2,
+        },
+      }),
+    ])
+    const wf = new WorkflowApp(main, [subworkflow])
+
+    expect(() => validate(wf)).not.toThrow(WorkflowValidationError)
   })
 })

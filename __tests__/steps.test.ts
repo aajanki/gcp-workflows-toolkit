@@ -296,7 +296,7 @@ describe('workflows step', () => {
     const predicateSubworkflow = new Subworkflow(
       'my_retry_predicate',
       [returnStep('always_retry', true)],
-      ['e']
+      [{ name: 'e' }]
     )
 
     const potentiallyFailingStep = call('http_step', {

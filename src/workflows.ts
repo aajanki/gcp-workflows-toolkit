@@ -1,7 +1,12 @@
 import * as YAML from 'yaml'
 
 import { NamedWorkflowStep } from './steps'
-import { GWVariableName } from './variables'
+import { GWValue, GWVariableName } from './variables'
+
+export interface WorkflowParameter {
+  name: GWVariableName
+  default?: GWValue
+}
 
 /**
  * This is the main container class that combines main and subworkflows
@@ -31,12 +36,12 @@ export class WorkflowApp {
 export class BaseWorkflow {
   readonly name: string
   readonly steps: NamedWorkflowStep[]
-  readonly params?: GWVariableName[]
+  readonly params?: WorkflowParameter[]
 
   constructor(
     name: string,
     steps: NamedWorkflowStep[],
-    params?: GWVariableName[]
+    params?: WorkflowParameter[]
   ) {
     this.name = name
     this.steps = steps
@@ -51,7 +56,13 @@ export class BaseWorkflow {
 
   renderBody(): object {
     return {
-      params: this.params,
+      params: this.params?.map((x) => {
+        if (x.default) {
+          return { [x.name]: x.default }
+        } else {
+          return x.name
+        }
+      }),
       steps: this.steps.map(({ name, step }) => {
         return { [name]: step.render() }
       }),
@@ -83,11 +94,10 @@ export class BaseWorkflow {
 
 // https://cloud.google.com/workflows/docs/reference/syntax/subworkflows
 export class Subworkflow extends BaseWorkflow {
-  // TODO: support optional parameters and default value
   constructor(
     name: string,
     steps: NamedWorkflowStep[],
-    params?: GWVariableName[]
+    params?: WorkflowParameter[]
   ) {
     super(name, steps, params)
   }
@@ -96,7 +106,7 @@ export class Subworkflow extends BaseWorkflow {
 // https://cloud.google.com/workflows/docs/reference/syntax/subworkflows#main-block
 export class MainWorkflow extends BaseWorkflow {
   constructor(steps: NamedWorkflowStep[], argumentName?: GWVariableName) {
-    const paramsArray = argumentName ? [argumentName] : undefined
+    const paramsArray = argumentName ? [{ name: argumentName }] : undefined
     super('main', steps, paramsArray)
   }
 }
