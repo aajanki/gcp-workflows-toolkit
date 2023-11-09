@@ -55,6 +55,7 @@ describe('Validator', () => {
     const wf = new WorkflowApp(new MainWorkflow(steps))
 
     expect(() => validate(wf)).toThrow(WorkflowValidationError)
+    expect(() => validate(wf)).toThrow('duplicatedStepName')
   })
 
   it('detects duplicate step names in a subworkflow workflow', () => {
@@ -82,6 +83,7 @@ describe('Validator', () => {
     const wf = new WorkflowApp(mainWorkflow, [subworkflow])
 
     expect(() => validate(wf)).toThrow(WorkflowValidationError)
+    expect(() => validate(wf)).toThrow('duplicatedStepName')
   })
 
   it('detects duplicate step names in nested steps', () => {
@@ -127,6 +129,7 @@ describe('Validator', () => {
     const wf = new WorkflowApp(new MainWorkflow(steps))
 
     expect(() => validate(wf)).toThrow(WorkflowValidationError)
+    expect(() => validate(wf)).toThrow('duplicatedStepName')
   })
 
   it('accepts the same steps name being used in the main and a subworkflow', () => {
@@ -166,6 +169,7 @@ describe('Validator', () => {
     const wf = new WorkflowApp(main, [sub1, sub2, sub3])
 
     expect(() => validate(wf)).toThrow(WorkflowValidationError)
+    expect(() => validate(wf)).toThrow('duplicatedSubworkflowName')
   })
 
   it('detects a missing next target', () => {
@@ -189,6 +193,7 @@ describe('Validator', () => {
     const wf = new WorkflowApp(main, [sub1, sub2])
 
     expect(() => validate(wf)).toThrow(WorkflowValidationError)
+    expect(() => validate(wf)).toThrow('missingJumpTarget')
   })
 
   it('detects a missing call target subworkflow', () => {
@@ -199,6 +204,7 @@ describe('Validator', () => {
     const wf = new WorkflowApp(main, [sub2])
 
     expect(() => validate(wf)).toThrow(WorkflowValidationError)
+    expect(() => validate(wf)).toThrow('missingJumpTarget')
   })
 
   it('detects if a required subworkflow argument is not provided', () => {
@@ -219,6 +225,7 @@ describe('Validator', () => {
     const wf = new WorkflowApp(main, [subworkflow])
 
     expect(() => validate(wf)).toThrow(WorkflowValidationError)
+    expect(() => validate(wf)).toThrow('wrongNumberOfCallArguments')
   })
 
   it('optional subworkflow parameters may be missing', () => {
@@ -261,6 +268,7 @@ describe('Validator', () => {
     const wf = new WorkflowApp(main, [subworkflow])
 
     expect(() => validate(wf)).toThrow(WorkflowValidationError)
+    expect(() => validate(wf)).toThrow('wrongNumberOfCallArguments')
   })
 
   it('accepts a value for optional subworkflow parameters', () => {

@@ -5,7 +5,8 @@ export class WorkflowValidationError extends Error {
   issues: WorkflowIssue[]
 
   constructor(issues: WorkflowIssue[]) {
-    super('Workflow validation error')
+    const issueTypes = Array.from(new Set(issues.map((x) => x.type))).join(", ")
+    super(`Workflow validation error: ${issueTypes}`)
     this.name = this.constructor.name
     this.issues = issues
   }
