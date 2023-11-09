@@ -21,7 +21,7 @@ const subworkflow = new Subworkflow(
       },
     }),
   ],
-  ['name']
+  [{ name: 'name' }]
 )
 
 const mainWorkflow = new MainWorkflow([

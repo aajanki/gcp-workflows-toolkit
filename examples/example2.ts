@@ -60,7 +60,7 @@ function getOrderSubworkflow() {
     exceptSteps: [handleKnownErrors, handleUnknownErrors],
   })
 
-  return new Subworkflow('get_order_status', [step], ['order_id'])
+  return new Subworkflow('get_order_status', [step], [{ name: 'order_id' }])
 }
 
 main()

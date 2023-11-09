@@ -18,7 +18,7 @@ function main() {
         },
       }),
     ],
-    ['name']
+    [{ name: 'name' }]
   )
 
   const mainWorkflow = new MainWorkflow([
