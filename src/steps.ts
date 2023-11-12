@@ -49,8 +49,8 @@ export class CallStep implements WorkflowStep {
   readonly args?: GWArguments
   readonly result?: string
 
-  constructor(call: string | Subworkflow, args?: GWArguments, result?: string) {
-    this.call = call instanceof Subworkflow ? call.name : call
+  constructor(call: string, args?: GWArguments, result?: string) {
+    this.call = call
     this.args = args
     this.result = result
   }
@@ -83,9 +83,10 @@ export function call(
   name: GWStepName,
   options: { call: string | Subworkflow; args?: GWArguments; result?: string }
 ): NamedWorkflowStep {
+  const callTarget = options.call instanceof Subworkflow ? options.call.name : options.call
   return {
     name,
-    step: new CallStep(options.call, options.args, options.result),
+    step: new CallStep(callTarget, options.args, options.result),
   }
 }
 
