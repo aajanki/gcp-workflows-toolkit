@@ -276,28 +276,49 @@ export class ForStep implements WorkflowStep {
   readonly steps: NamedWorkflowStep[]
   readonly loopVariableName: GWVariableName
   readonly indexVariableName?: GWVariableName
-  readonly listExpression: GWExpression | GWValue[]
+  readonly listExpression?: GWExpression | GWValue[]
+  readonly rangeStart?: number
+  readonly rangeEnd?: number
 
   constructor(
     steps: NamedWorkflowStep[],
     loopVariable: GWVariableName,
-    listExpression: GWExpression | GWValue[],
-    indexVariable?: GWVariableName
+    listExpression?: GWExpression | GWValue[],
+    indexVariable?: GWVariableName,
+    rangeStart?: number,
+    rangeEnd?: number
   ) {
     this.steps = steps
     this.loopVariableName = loopVariable
     this.indexVariableName = indexVariable
     this.listExpression = listExpression
+    this.rangeStart = rangeStart
+    this.rangeEnd = rangeEnd
   }
 
   render(): object {
     return {
-      for: {
-        value: this.loopVariableName,
-        index: this.indexVariableName,
-        in: renderGWValue(this.listExpression),
-        steps: renderSteps(this.steps),
-      },
+      for: this.renderBody(),
+    }
+  }
+
+  renderBody(): object {
+    let range
+    let inValue
+    if (typeof this.listExpression === 'undefined') {
+      range = [this.rangeStart, this.rangeEnd]
+      inValue = undefined
+    } else {
+      inValue = renderGWValue(this.listExpression)
+      range = undefined
+    }
+
+    return {
+      value: this.loopVariableName,
+      index: this.indexVariableName,
+      in: inValue,
+      range: range,
+      steps: renderSteps(this.steps),
     }
   }
 
@@ -308,21 +329,44 @@ export class ForStep implements WorkflowStep {
 
 export function forStep(
   name: GWStepName,
-  options: {
-    steps: NamedWorkflowStep[]
-    loopVariable: GWVariableName
-    indexVariable?: GWVariableName
-    listExpression: GWExpression | GWValue[]
-  }
+  options:
+    | {
+        steps: NamedWorkflowStep[]
+        loopVariable: GWVariableName
+        indexVariable?: GWVariableName
+        listExpression: GWExpression | GWValue[]
+      }
+    | {
+        steps: NamedWorkflowStep[]
+        loopVariable: GWVariableName
+        start: number
+        end: number
+      }
 ): NamedWorkflowStep {
-  return {
-    name,
-    step: new ForStep(
+  let step: ForStep
+  if ('listExpression' in options) {
+    step = new ForStep(
       options.steps,
       options.loopVariable,
       options.listExpression,
-      options.indexVariable
-    ),
+      options.indexVariable,
+      undefined,
+      undefined
+    )
+  } else {
+    step = new ForStep(
+      options.steps,
+      options.loopVariable,
+      undefined,
+      undefined,
+      options.start,
+      options.end
+    )
+  }
+
+  return {
+    name,
+    step,
   }
 }
 
@@ -380,22 +424,12 @@ export class Parallel implements WorkflowStep {
   }
 
   render(): object {
-    let forBody = undefined
-    if (this.forStep) {
-      forBody = {
-        value: this.forStep.loopVariableName,
-        index: this.forStep.indexVariableName,
-        in: renderGWValue(this.forStep.listExpression),
-        steps: renderSteps(this.forStep.steps),
-      }
-    }
-
     return {
       parallel: {
         shared: this.shared,
         concurrency_limit: this.concurrenceLimit,
         branches: this.branches ? renderSteps(this.branches) : undefined,
-        for: forBody,
+        for: this.forStep ? this.forStep.renderBody() : undefined,
       },
     }
   }

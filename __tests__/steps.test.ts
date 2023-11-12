@@ -380,6 +380,49 @@ describe('workflows step', () => {
     expect(step.render()).toEqual(expected)
   })
 
+  it('renders an index-based for step', () => {
+    const { step } = forStep('loop', {
+      loopVariable: 'v',
+      indexVariable: 'i',
+      listExpression: [10, 20, 30],
+      steps: [assign('addStep', [['sum', $('sum + i*v')]])],
+    })
+
+    const expected = YAML.parse(`
+    for:
+        value: v
+        index: i
+        in: [10, 20, 30]
+        steps:
+          - addStep:
+              assign:
+                - sum: \${sum + i*v}
+    `)
+
+    expect(step.render()).toEqual(expected)
+  })
+
+  it('renders a for-range step', () => {
+    const { step } = forStep('loop', {
+      loopVariable: 'v',
+      start: 1,
+      end: 9,
+      steps: [assign('addStep', [['sum', $('sum + v')]])],
+    })
+
+    const expected = YAML.parse(`
+    for:
+        value: v
+        range: [1, 9]
+        steps:
+          - addStep:
+              assign:
+                - sum: \${sum + v}
+    `)
+
+    expect(step.render()).toEqual(expected)
+  })
+
   it('renders parallel branches', () => {
     const { step } = parallel('parallel1', {
       branches: [
