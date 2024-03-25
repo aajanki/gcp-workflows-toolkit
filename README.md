@@ -1,8 +1,8 @@
 # Toolkit for writing GCP Workflows applications
 
-A Typescript library for writing [Google Cloud Workflows](https://cloud.google.com/workflows/docs/reference/syntax).
+Status: deprecated, see [WorkflowScript](https://github.com/aajanki/workflowscript) for a better approach.
 
-Status: beta, not all workflow features are supported.
+A Typescript library for writing [Google Cloud Workflows](https://cloud.google.com/workflows/docs/reference/syntax).
 
 By writing a workflow definition in Typescript, we can employ the Typescript type checking to catch many potential errors already during the development stage.
 
